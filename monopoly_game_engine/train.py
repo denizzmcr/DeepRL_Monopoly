@@ -32,11 +32,50 @@ import numpy as np
 import torch
 
 from .actions import ActionType
-from .agents_fixed import FixedPolicyAgent, FPAgentA, FPAgentB, FPAgentC
+from .agents_fixed import FP_AGENT_CLASSES, FixedPolicyAgent, FPAgentA, FPAgentB, FPAgentC
 from .constants import NUM_PLAYERS
 from .env import MonopolyEnv
 
 POTENTIAL_REWARD_LIMIT = 2.0
+
+OPPONENT_IDS = (
+    *(f"fixed-{letter}" for letter in "abcdef"),
+    "asu-value-v1",
+    "asu-rollout-v1",
+)
+DEFAULT_OPPONENT_IDS = ("fixed-a", "fixed-b", "fixed-c")
+
+
+def build_opponents(ids, player_ids):
+    """Instantiate the named opponent policies on the given seats.
+
+    The vocabulary matches ``ASU_FROZEN_TEACHER.evaluate --opponents`` and
+    ``monopoly_bench``, so a name means the same policy everywhere. Every
+    returned agent exposes ``choose_action(env)`` and ``player_id``, which is
+    all ``run_episode`` needs.
+
+    ASU is imported lazily on purpose. ``monopoly_game_engine/__init__`` imports
+    this module, so a module-level ASU import would drag the teacher into every
+    process that touches the engine — including the submitted agent, which is
+    required to be ASU-free.
+    """
+    ids = tuple(ids)
+    if len(ids) != len(player_ids):
+        raise ValueError(f"Need {len(player_ids)} opponents, got {len(ids)}")
+    agents = []
+    for identifier, pid in zip(ids, player_ids):
+        if identifier not in OPPONENT_IDS:
+            raise ValueError(
+                f"Unknown opponent {identifier!r}; expected one of {OPPONENT_IDS}"
+            )
+        if identifier.startswith("asu-"):
+            from ASU_FROZEN_TEACHER import ASURolloutV1, ASUValueV1
+
+            policy = ASURolloutV1 if identifier == "asu-rollout-v1" else ASUValueV1
+            agents.append(policy(pid))
+        else:
+            agents.append(FP_AGENT_CLASSES[ord(identifier[-1]) - ord("a")](pid))
+    return agents
 
 
 def run_episode(
@@ -296,9 +335,15 @@ def train(
     checkpoint_every: int = 0,
     checkpoint_path: str | None = None,
     watchdog=None,
+    opponents=DEFAULT_OPPONENT_IDS,
 ) -> Dict:
     """
     Main training function.
+
+    ``opponents`` names the three policies the learner trains against. It
+    defaults to Fixed-A/B/C, which is what this function always used. Naming
+    ASU seats here is the supported way to train against a strong opponent —
+    note it costs roughly two orders of magnitude in wall time per game.
 
     Returns:
         history: dict with win_rates (list per log_every games) and other metrics
@@ -310,8 +355,7 @@ def train(
     env = MonopolyEnv(agent_ids=[agent_pid], max_rounds=200)
 
     other_pids = [i for i in range(NUM_PLAYERS) if i != agent_pid]
-    fp_classes = [FPAgentA, FPAgentB, FPAgentC]
-    fp_agents = [fp_classes[i](other_pids[i]) for i in range(3)]
+    fp_agents = build_opponents(opponents, other_pids)
 
     history = defaultdict(list)
     wins_window = 0
@@ -427,9 +471,10 @@ def evaluate(
     n_games: int = 2000,
     n_runs: int = 5,
     seed: int = 0,
+    opponents=DEFAULT_OPPONENT_IDS,
 ) -> Dict:
     """
-    Evaluate a trained agent over n_runs × n_games.
+    Evaluate a trained agent over n_runs × n_games against ``opponents``.
     Sets epsilon=0 for DDQN automatically.
     Returns win rates plus per-game averages of all tracked metrics.
     """
@@ -439,11 +484,7 @@ def evaluate(
     agent_pid = learning_agent.player_id
     env = MonopolyEnv(agent_ids=[agent_pid], max_rounds=200)
     other_pids = [i for i in range(NUM_PLAYERS) if i != agent_pid]
-    fp_agents = [
-        FPAgentA(other_pids[0]),
-        FPAgentB(other_pids[1]),
-        FPAgentC(other_pids[2]),
-    ]
+    fp_agents = build_opponents(opponents, other_pids)
 
     all_wins = []
     all_ti, all_ta, all_td, all_pa = [], [], [], []

@@ -23,7 +23,7 @@ from .env          import MonopolyEnv
 from .agent_ppo    import PPOAgent
 from .agent_ddqn   import DDQNAgent
 from .agents_fixed import FPAgentA, FPAgentB, FPAgentC
-from .train        import train, evaluate
+from .train        import DEFAULT_OPPONENT_IDS, OPPONENT_IDS, train, evaluate
 from .state        import build_state_vector
 from .actions      import ACTION_SPACE_SIZE, action_to_description
 
@@ -38,6 +38,7 @@ def train_ppo(
     watchdog=None,
     seed: int = 42,
     resume_path: str | None = None,
+    opponents=DEFAULT_OPPONENT_IDS,
     **kwargs,
 ):
     """Train a PPO agent. Set hybrid=True for the hybrid approach."""
@@ -58,6 +59,7 @@ def train_ppo(
         checkpoint_path=checkpoint_path,
         watchdog=watchdog,
         seed=seed,
+        opponents=opponents,
     )
     return agent, history
 
@@ -72,6 +74,7 @@ def train_ddqn(
     watchdog=None,
     seed: int = 42,
     resume_path: str | None = None,
+    opponents=DEFAULT_OPPONENT_IDS,
     **kwargs,
 ):
     """Train a DDQN agent. Set hybrid=True for the hybrid approach."""
@@ -92,6 +95,7 @@ def train_ddqn(
         checkpoint_path=checkpoint_path,
         watchdog=watchdog,
         seed=seed,
+        opponents=opponents,
     )
     return agent, history
 

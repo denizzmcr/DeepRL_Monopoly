@@ -19,9 +19,18 @@ still needs a decision or a check before the deadline.
 - **Submission constraints (CONFIRMED with the team, 2026-08-10):**
   - The submission **must be a learned model**. A pure heuristic or search
     agent is not an acceptable submission.
-  - **`ASU_FROZEN_TEACHER` is forbidden inside the submitted agent.** It may
-    be used only as an offline label generator for training. No ASU code may
-    run at match time, and nothing the submission imports may reach it.
+  - **Imitating ASU is forbidden.** No distillation, no behaviour cloning, no
+    use of ASU decisions as supervised targets. ASU is allowed **only as a
+    training opponent and as an evaluation benchmark**. No ASU code may run at
+    match time either, and nothing the submission imports may reach it.
+    - This also rules out `monopoly_bench`'s MonopolyZero bootstrap, which
+      trains its policy head on ASU actions (`collect_asu_examples` →
+      cross-entropy on `selected_actions`). Its self-play stages are fine; the
+      ASU-imitation bootstrap is not.
+    - Measured cost of using ASU as an opponent (M4 Pro, 2026-08-10):
+      **0.56 s/game vs three fixed agents, 80.8 s/game with one ASU seat,
+      54.6 s/game with three.** ASU opposition is ~100× slower, so it must be
+      budgeted, not used for bulk training.
   - Hardcoded rules taken from the papers / §4 of this file (the hybrid
     `BUY_PROPERTY` / `ACCEPT_TRADE` split) **are** allowed in the submission.
   - Per-move time budget is unknown; design for ~1 s and measure p95.
@@ -214,38 +223,29 @@ Note the last row: this laptop is not the bottleneck people assumed. A
 
 ---
 
-## 8. Algorithm decision — SUPERSEDED 2026-08-10. Primary path is now distillation.
+## 8. Algorithm decision — PPO, trained by playing. Not by imitation.
 
-> **Current decision: distil `asu_value_v1` into a network.** Collect ASU-labelled
-> decisions offline, train `ActorNetwork` on them with masked cross-entropy, and
-> save the result through `PPOAgent.save()` so it is a format-3 checkpoint that
-> every existing evaluator already loads. PPO fine-tuning from that warm start is
-> a *candidate* stage afterwards, not the starting point.
+> **A distillation plan was proposed and killed on 2026-08-10.** It would have
+> trained a network on ASU's decisions. The instructor forbids imitating ASU
+> (§1), so it is off the table. Recorded here so nobody re-derives it: the
+> reasoning was "ASU wins 72/100, copying it is cheaper than rediscovering it",
+> and the answer is that the rule does not allow copying. **Do not re-propose
+> distillation, behaviour cloning, or the MonopolyZero ASU bootstrap.**
 >
-> **Why this superseded "PPO from scratch":** the reasoning below was sound given
-> what was known, but it was written believing `ASU_FROZEN_TEACHER/`,
-> `monopoly_bench/`, and `SLM_HANDMADE_MONOPOLY/` were unexplored (§2). They are
-> not. Once `asu_value_v1`'s 72/100 result (§7) is on the table, the question is
-> no longer "which learner might reach a decent win rate from scratch in 5 days"
-> but "why would we rediscover from scratch a policy we can copy in an afternoon."
-> Distillation also satisfies the §1 constraint that the submission be a learned
-> model, because ASU only produces training labels and never runs at match time.
+> **Current decision: RL against an opponent curriculum.** Bulk training against
+> the fixed agents (fast, 0.56 s/game), with ASU seats as the hard end of the
+> curriculum and as the evaluation benchmark — budgeted, because ASU opposition
+> costs ~100× more per game (§1).
 >
-> This is the repo's own designed lifecycle (`monopoly_bench/README.md`: ASU
-> imitation → self-play → gates) and the imitation warm-start recipe from the
-> Haliem et al. preprint in §6 — which this file previously filed as "background
-> only". That downgrade was the mistake; it is the closest published match to what
-> we are actually doing.
->
-> **What did not change:** if PPO fine-tuning runs, the hyperparameters below are
-> still the right starting point, with two deviations forced by the warm start —
-> `entropy_coef` must drop from 0.05 to ~0.005 (0.05 pushes the policy back toward
-> uniform and destroys the distillation), and `n_steps` must stay far above the
-> paper's memory=20 (a 20-step rollout over a 2,958-action space is gradient noise).
+> `train()`, `evaluate()`, `train_ppo()` and `train_ddqn()` now take an
+> `opponents` argument naming the three seats, using the same vocabulary as
+> `ASU_FROZEN_TEACHER.evaluate` (`fixed-a`..`fixed-f`, `asu-value-v1`,
+> `asu-rollout-v1`). It defaults to Fixed-A/B/C, so existing callers are
+> unchanged. ASU is imported lazily inside `build_opponents` so that importing
+> the engine never drags the teacher into the submitted agent's process.
 
-**Superseded plan, preserved for the reasoning trail: PPO from scratch**, using
-the paper's exact validated hyperparameters (Bonjour et al. appendix), not
-whatever produced the 0-2.5% result:
+**Hyperparameters — the paper's exact validated values** (Bonjour et al.
+appendix), not whatever produced the 0-2.5% result:
 
 ```
 γ = 0.9999
