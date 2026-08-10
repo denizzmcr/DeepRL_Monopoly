@@ -245,8 +245,14 @@ def main() -> int:
         ):
             results.append(result)
             elapsed = time.perf_counter() - started
-            rate = done / elapsed * 3600 if elapsed else 0.0
-            remaining = (len(plan) - done) / rate * 3600 if rate else 0.0
+            # Shards finish in waves of --workers, so dividing completions by
+            # elapsed time badly overestimates the remaining time during the
+            # first wave. Project from mean shard duration and how many can run
+            # concurrently instead.
+            durations = [r["seconds"] for r in results if r["status"] == "collected"]
+            mean_shard = sum(durations) / len(durations) if durations else 0.0
+            waves_left = (len(plan) - done + args.workers - 1) // args.workers
+            remaining = waves_left * mean_shard
             note = result.get("error", f"{result['rows']} rows")
             print(
                 f"[{done}/{len(plan)}] {result['status']:9s} "
