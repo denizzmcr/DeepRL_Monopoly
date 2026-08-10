@@ -46,6 +46,21 @@ OPPONENT_IDS = (
 DEFAULT_OPPONENT_IDS = ("fixed-a", "fixed-b", "fixed-c")
 
 
+def normalize_opponent_plan(opponents):
+    """Accept either one opponent triple or a list of triples to rotate through.
+
+    Training against a single triple overfits to those personalities: an agent
+    trained only on Fixed-A/B/C scored 86.5% against them and 56.5% against the
+    unseen Fixed-D/E/F. Rotating triples per game widens the exposure without
+    changing anything for callers that pass a single triple.
+    """
+    if not opponents:
+        raise ValueError("opponents must not be empty")
+    if isinstance(opponents[0], str):
+        return [tuple(opponents)]
+    return [tuple(triple) for triple in opponents]
+
+
 def build_opponents(ids, player_ids):
     """Instantiate the named opponent policies on the given seats.
 
@@ -355,7 +370,10 @@ def train(
     env = MonopolyEnv(agent_ids=[agent_pid], max_rounds=200)
 
     other_pids = [i for i in range(NUM_PLAYERS) if i != agent_pid]
-    fp_agents = build_opponents(opponents, other_pids)
+    opponent_plan = normalize_opponent_plan(opponents)
+    # Rotated by game index rather than sampled, so each triple gets an equal
+    # share and a resumed run stays reproducible.
+    fp_agents = build_opponents(opponent_plan[0], other_pids)
 
     history = defaultdict(list)
     wins_window = 0
@@ -397,6 +415,11 @@ def train(
                 history["stopped_early"] = True
                 history["stop_reason"] = str(exc)
                 break
+
+        if len(opponent_plan) > 1:
+            fp_agents = build_opponents(
+                opponent_plan[(absolute_game - 1) % len(opponent_plan)], other_pids
+            )
 
         result = run_episode(env, learning_agent, fp_agents, agent_pid, is_ppo)
         games_completed = game_num
