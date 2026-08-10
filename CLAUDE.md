@@ -282,13 +282,26 @@ re-argued from scratch:**
    paper's DDQN hyperparameters and remains a credible fallback, but is not
    primary.
 
-**The old OPEN item — "re-run the 2,000-game PPO milestone with the corrected
-hyperparameters before committing" — is no longer on the critical path**, because
-the plan no longer commits to PPO-from-scratch. It is now optional diagnostic
-work: it costs ~18 minutes on this laptop (§7) and would tell us whether the
-0-2.5% collapse was mistuning or a real bug in the PPO path (mask wiring, reward
-hookup, log-prob computation). That answer still matters for the Phase-4 fine-tune,
-so run it if the fine-tune misbehaves — but do not block the distillation on it.
+**RESOLVED 2026-08-11 — the hyperparameters were never the problem.** All three
+configurations were run for 2,000 games against Fixed-A/B/C, same seed:
+
+| config | final window | best window |
+|---|---|---|
+| code defaults | 0.0% | 2.0% |
+| defaults, `entropy_coef` 0.05 → 0.005 | 2.0% | 10.0% |
+| **the paper's exact hyperparameters above** | **2.0%** | **2.0%** |
+| defaults + voluntary liquidation masked | 44.0% | 66.0% |
+| **low entropy + voluntary liquidation masked** | **76.0%** | **90.0%** |
+
+The paper's hyperparameters reproduce the collapse exactly. The single change
+that fixes it is refusing voluntary liquidation (§10). Tuning was a dead end;
+the action space was the whole story. Do not re-run this comparison.
+
+Note the paper itself reports the same class of failure from action-space
+design: *"we omit the comparison of action space representations since the agent
+does not win a single game against the fixed-policy agents when using a simpler
+action space"*. A 0% win rate in this game indicates an action-space problem,
+not a learning-rate problem.
 
 ---
 
