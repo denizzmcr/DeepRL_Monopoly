@@ -171,6 +171,14 @@ _EXPERT_FIELDS = (
     "teachers",
 )
 
+# Identifies which game each row came from, so a distillation trainer can split
+# train/validation by game. Splitting by row leaks trajectories across the split
+# and inflates held-out accuracy. The value is the game's seed rather than a
+# per-run counter, because seeds stay unique when shards are merged across runs
+# and machines (a per-run counter restarts at 0 in every shard and collides).
+# Optional so shards collected before this field existed still load.
+_OPTIONAL_EXPERT_FIELDS = ("game_seeds",)
+
 
 def _validate_asu_examples(examples: dict[str, np.ndarray]) -> None:
     missing = set(_EXPERT_FIELDS) - set(examples)
@@ -185,7 +193,14 @@ def _validate_asu_examples(examples: dict[str, np.ndarray]) -> None:
         "outcomes": (count, NUM_PLAYERS),
         "teachers": (count,),
     }
-    actual = {name: tuple(examples[name].shape) for name in _EXPERT_FIELDS}
+    for name in _OPTIONAL_EXPERT_FIELDS:
+        if name in examples:
+            expected[name] = (count,)
+    actual = {
+        name: tuple(examples[name].shape)
+        for name in (*_EXPERT_FIELDS, *_OPTIONAL_EXPERT_FIELDS)
+        if name in examples
+    }
     if count < 1 or actual != expected:
         raise ValueError(f"Bad ASU expert shapes: {actual}; expected {expected}")
     if not np.isfinite(examples["states"]).all() or not np.isfinite(examples["outcomes"]).all():
@@ -202,10 +217,14 @@ def save_asu_examples(path: str | Path, examples: dict[str, np.ndarray]) -> Path
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_name(destination.name + ".tmp")
+    stored = {name: examples[name] for name in _EXPERT_FIELDS}
+    stored.update(
+        {name: examples[name] for name in _OPTIONAL_EXPERT_FIELDS if name in examples}
+    )
     with temporary.open("wb") as handle:
         np.savez_compressed(
             handle,
-            **{name: examples[name] for name in _EXPERT_FIELDS},
+            **stored,
             ruleset=np.asarray(RULESET_VERSION),
             asu_spec_hash=np.asarray(FROZEN_SPEC_HASH),
         )
@@ -232,16 +251,68 @@ def load_asu_examples(paths: Iterable[str | Path]) -> dict[str, np.ndarray]:
                     f"Incompatible ASU expert data: {(ruleset, spec_hash)}"
                 )
             group = {name: np.asarray(payload[name]).copy() for name in _EXPERT_FIELDS}
+            group.update(
+                {
+                    name: np.asarray(payload[name]).copy()
+                    for name in _OPTIONAL_EXPERT_FIELDS
+                    if name in payload.files
+                }
+            )
         _validate_asu_examples(group)
         groups.append(group)
     if not groups:
         raise ValueError("At least one ASU expert shard is required")
+    fields = list(_EXPERT_FIELDS)
+    for name in _OPTIONAL_EXPERT_FIELDS:
+        carriers = sum(name in group for group in groups)
+        if carriers == len(groups):
+            fields.append(name)
+        elif carriers:
+            # Silently dropping it would hand the trainer a by-game split that
+            # covers only some of the data, which is worse than refusing.
+            raise ValueError(
+                f"ASU expert shards disagree on optional field {name!r}: "
+                f"{carriers} of {len(groups)} carry it. Recollect the shards "
+                "that predate it, or load them separately."
+            )
     merged = {
         name: np.concatenate([group[name] for group in groups], axis=0)
-        for name in _EXPERT_FIELDS
+        for name in fields
     }
     _validate_asu_examples(merged)
     return merged
+
+
+OPPONENT_IDS = (
+    *(f"fixed-{letter}" for letter in "abcdef"),
+    "asu-value-v1",
+    "asu-rollout-v1",
+)
+DEFAULT_OPPONENT_IDS = ("fixed-a", "fixed-b", "fixed-c")
+
+
+def resolve_opponents(ids: Iterable[str]):
+    """Build the three opponent adapters named by ``ids``.
+
+    The vocabulary matches ``ASU_FROZEN_TEACHER.evaluate``'s ``--opponents`` so
+    the same names mean the same policies in collection and in evaluation.
+    """
+    resolved = []
+    for identifier in ids:
+        if identifier not in OPPONENT_IDS:
+            raise ValueError(
+                f"Unknown opponent {identifier!r}; expected one of {OPPONENT_IDS}"
+            )
+        if identifier.startswith("asu-"):
+            resolved.append(ASUAdapter(rollout=identifier == "asu-rollout-v1"))
+        else:
+            index = ord(identifier[-1]) - ord("a")
+            resolved.append(FixedAdapter(FP_AGENT_CLASSES[index]))
+    if len(resolved) != NUM_PLAYERS - 1:
+        raise ValueError(
+            f"Exactly {NUM_PLAYERS - 1} opponents are required, got {len(resolved)}"
+        )
+    return resolved
 
 
 def collect_asu_examples(
@@ -250,23 +321,37 @@ def collect_asu_examples(
     seed_base: int,
     max_rounds: int,
     rollout_positions: int = 0,
+    opponents: Iterable[str] = DEFAULT_OPPONENT_IDS,
 ) -> dict[str, np.ndarray]:
-    """Collect seat-balanced ASU actions with physical final-winner labels."""
+    """Collect seat-balanced ASU actions with physical final-winner labels.
+
+    ``opponents`` names the three policies filling the non-teacher seats. It
+    defaults to Fixed-A/B/C, which is what every existing caller assumed.
+    Varying it is what gives a distilled student states that Fixed-A/B/C alone
+    never produce (the opponent-diversity guardrail in CLAUDE.md §10).
+    """
     if games < 1 or rollout_positions < 0:
         raise ValueError("ASU games must be positive and rollout positions nonnegative")
     value = ASUAdapter()
     rollout = ASUAdapter(rollout=True)
-    fixed = [FixedAdapter(agent_class) for agent_class in FP_AGENT_CLASSES[:3]]
+    fixed = resolve_opponents(opponents)
     rollout_games = {
         min(games - 1, index * games // rollout_positions)
         for index in range(rollout_positions)
     } if rollout_positions else set()
-    collected: dict[str, list] = {name: [] for name in _EXPERT_FIELDS}
+    collected: dict[str, list] = {
+        name: [] for name in (*_EXPERT_FIELDS, *_OPTIONAL_EXPERT_FIELDS)
+    }
 
     for game_index in range(games):
         seed = seed_base + game_index
         game = SharedGame.new(seed, max_rounds)
-        teacher_seat = game_index % NUM_PLAYERS
+        # Derived from the seed rather than the loop index so seat balance is a
+        # property of the seed range and survives being split across shards. With
+        # the loop index, a shard of 2 games only ever used seats 0 and 1, and
+        # merged shards were badly seat-skewed. Identical to the old behaviour
+        # whenever seed_base is a multiple of NUM_PLAYERS.
+        teacher_seat = seed % NUM_PLAYERS
         opponent_seats = [seat for seat in range(NUM_PLAYERS) if seat != teacher_seat]
         opponents = dict(zip(opponent_seats, fixed))
         pending = []
@@ -311,6 +396,7 @@ def collect_asu_examples(
             collected["actors"].append(actor)
             collected["outcomes"].append(outcome)
             collected["teachers"].append(teacher)
+            collected["game_seeds"].append(seed)
 
     examples = {
         "states": np.asarray(collected["states"], dtype=np.float32),
@@ -319,6 +405,7 @@ def collect_asu_examples(
         "actors": np.asarray(collected["actors"], dtype=np.int64),
         "outcomes": np.asarray(collected["outcomes"], dtype=np.float32),
         "teachers": np.asarray(collected["teachers"], dtype=np.uint8),
+        "game_seeds": np.asarray(collected["game_seeds"], dtype=np.int64),
     }
     _validate_asu_examples(examples)
     return examples

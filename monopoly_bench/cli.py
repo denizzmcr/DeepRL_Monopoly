@@ -13,7 +13,13 @@ from .exports import export_teacher
 from .ladder import evaluate_promotion, gate_run_directory
 from .model import MonopolyZeroNet
 from .search import MaxNPUCT
-from .training import Trainer, collect_asu_examples, save_asu_examples
+from .training import (
+    DEFAULT_OPPONENT_IDS,
+    OPPONENT_IDS,
+    Trainer,
+    collect_asu_examples,
+    save_asu_examples,
+)
 
 
 DEFAULT_PPO = ROOT / "artifacts/ppo_plus/ppo_hybrid_2000_v2.pt"
@@ -76,6 +82,13 @@ def build_parser() -> argparse.ArgumentParser:
     collect_asu.add_argument("--seed-base", type=int, required=True)
     collect_asu.add_argument("--max-rounds", type=int, default=200)
     collect_asu.add_argument("--rollout-positions", type=int, default=0)
+    collect_asu.add_argument(
+        "--opponents",
+        nargs=3,
+        default=list(DEFAULT_OPPONENT_IDS),
+        choices=list(OPPONENT_IDS),
+        help="three policies filling the non-teacher seats (default: fixed-a/b/c)",
+    )
 
     gate = subparsers.add_parser("gate")
     gate.add_argument("--run-dir", required=True)
@@ -112,6 +125,7 @@ def main(argv: list[str] | None = None) -> int:
             seed_base=args.seed_base,
             max_rounds=args.max_rounds,
             rollout_positions=args.rollout_positions,
+            opponents=args.opponents,
         )
         destination = save_asu_examples(args.output, examples)
         print(
