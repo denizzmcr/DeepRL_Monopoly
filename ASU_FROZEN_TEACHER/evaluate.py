@@ -21,6 +21,7 @@ from .core import (
 )
 from .spec import FROZEN_SPEC_HASH
 
+from monopoly_game_engine.action_filters import restrict_actions  # noqa: E402
 from monopoly_game_engine.actions import ACTION_SPACE_SIZE, ActionType  # noqa: E402
 from monopoly_game_engine.agent_ddqn import DDQNAgent  # noqa: E402
 from monopoly_game_engine.agent_ppo import (  # noqa: E402
@@ -132,6 +133,14 @@ class _NeuralAdapter:
         if self.agent.hybrid:
             fixed = {int(ActionType.BUY_PROPERTY), int(ActionType.ACCEPT_TRADE)}
             allowed = [action for action in allowed if action not in fixed]
+        # A checkpoint trained with voluntary liquidation masked out has never
+        # received gradient on those actions, so their logits are still at
+        # initialisation. Running it without the restriction is not a neutral
+        # choice: measured, the same checkpoint drops from 83% to 0% and
+        # liquidates 251 times per game. The checkpoint declares how it must be
+        # run, and older checkpoints without the flag are unaffected.
+        if getattr(self.agent, "restrict_liquidation", False):
+            allowed = restrict_actions(env, self.player_id, allowed)
         if not allowed:
             return int(ActionType.DO_NOTHING)
 
