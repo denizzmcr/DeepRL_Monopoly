@@ -36,6 +36,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+from .action_filters import restrict_actions
 from .actions import ACTION_SPACE_SIZE, OFFSETS, ActionType
 from .constants import (
     COLOR_GROUPS,
@@ -151,9 +152,15 @@ class PPOAgent:
         hidden_dim: int = 256,
         win_loss_bonus: float = 1.0,
         device: str = "auto",
+        restrict_liquidation: bool = False,
     ):
         self.player_id = player_id
         self.hybrid = hybrid
+        # When set, the actor never considers voluntary mortgage/sell actions.
+        # Debt-forced liquidation is untouched. See action_filters for the
+        # measurements motivating this; briefly, an unrestricted stochastic
+        # policy dismantles its own position and wins 0% of games.
+        self.restrict_liquidation = restrict_liquidation
         self.gamma = gamma
         self.lam = lam
         self.clip_eps = clip_eps
@@ -223,6 +230,8 @@ class PPOAgent:
 
         # Filter out fixed-policy actions from neural net consideration
         nn_allowed = [a for a in allowed_actions if not self.fixed_action_mask[a]]
+        if self.restrict_liquidation:
+            nn_allowed = restrict_actions(env, pid, nn_allowed)
         if not nn_allowed:
             nn_allowed = [int(ActionType.DO_NOTHING)]
 
@@ -424,6 +433,10 @@ class PPOAgent:
                     "n_epochs": self.n_epochs,
                     "batch_size": self.batch_size,
                     "win_loss_bonus": self.win_loss_bonus,
+                    # Recorded so inference reproduces the action set the
+                    # policy was trained on; a checkpoint trained with the
+                    # restriction is wrong to run without it.
+                    "restrict_liquidation": self.restrict_liquidation,
                 },
                 "actor": self.actor.state_dict(),
                 "critic": self.critic.state_dict(),
