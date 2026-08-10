@@ -61,6 +61,74 @@ def normalize_opponent_plan(opponents):
     return [tuple(triple) for triple in opponents]
 
 
+class FrozenPolicyOpponent:
+    """A saved checkpoint playing as an opponent, weights frozen.
+
+    Lets past snapshots and rival agents sit in the other seats, which is how
+    you train against a population rather than a fixed cast. Necessary here
+    because agents trained against one opponent set turn out to be specialists:
+    our best agent scored 86.5% against the trio it trained on and 19.0% in a
+    four-way that differed only in which fourth player was present.
+
+    Inference mirrors the evaluator: hybrid interception, the checkpoint's own
+    liquidation setting, and deterministic argmax.
+    """
+
+    _cache: dict = {}
+
+    def __init__(self, checkpoint: str, player_id: int):
+        from .agent_ppo import PPOAgent
+
+        self.player_id = player_id
+        self.checkpoint = checkpoint
+        if checkpoint not in FrozenPolicyOpponent._cache:
+            payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+            agent = PPOAgent(
+                player_id=int(payload["player_id"]),
+                hybrid=bool(payload["hybrid"]),
+                hidden_dim=int(payload["hidden_dim"]),
+                device="cpu",
+            )
+            agent.load(checkpoint)
+            agent.actor.eval()
+            FrozenPolicyOpponent._cache[checkpoint] = agent
+        self.agent = FrozenPolicyOpponent._cache[checkpoint]
+
+    def choose_action(self, env) -> int:
+        from .action_filters import restrict_actions
+        from .actions import ACTION_SPACE_SIZE
+        from .agent_ppo import fixed_accept_trade_decision, fixed_buy_decision
+
+        pid = self.player_id
+        allowed = list(env.get_allowed_actions(pid))
+        if self.agent.hybrid:
+            if int(ActionType.BUY_PROPERTY) in allowed and fixed_buy_decision(env, pid):
+                return int(ActionType.BUY_PROPERTY)
+            if (
+                int(ActionType.ACCEPT_TRADE) in allowed
+                and env._incoming_trade(pid) is not None
+            ):
+                return (
+                    int(ActionType.ACCEPT_TRADE)
+                    if fixed_accept_trade_decision(env, pid)
+                    else int(ActionType.DECLINE_TRADE)
+                )
+            fixed = {int(ActionType.BUY_PROPERTY), int(ActionType.ACCEPT_TRADE)}
+            allowed = [a for a in allowed if a not in fixed]
+        if getattr(self.agent, "restrict_liquidation", False):
+            allowed = restrict_actions(env, pid, allowed)
+        if not allowed:
+            return int(ActionType.DO_NOTHING)
+        state = torch.as_tensor(
+            env._get_state(pid), dtype=torch.float32
+        ).unsqueeze(0)
+        mask = torch.zeros(1, ACTION_SPACE_SIZE, dtype=torch.bool)
+        mask[0, allowed] = True
+        with torch.inference_mode():
+            scores = self.agent.actor(state, mask).squeeze(0)
+        return int(scores.argmax().item())
+
+
 def build_opponents(ids, player_ids):
     """Instantiate the named opponent policies on the given seats.
 
@@ -79,9 +147,13 @@ def build_opponents(ids, player_ids):
         raise ValueError(f"Need {len(player_ids)} opponents, got {len(ids)}")
     agents = []
     for identifier, pid in zip(ids, player_ids):
+        if identifier.startswith("ppo:"):
+            agents.append(FrozenPolicyOpponent(identifier[4:], pid))
+            continue
         if identifier not in OPPONENT_IDS:
             raise ValueError(
-                f"Unknown opponent {identifier!r}; expected one of {OPPONENT_IDS}"
+                f"Unknown opponent {identifier!r}; expected one of {OPPONENT_IDS} "
+                "or ppo:/path/to/checkpoint.pt"
             )
         if identifier.startswith("asu-"):
             from ASU_FROZEN_TEACHER import ASURolloutV1, ASUValueV1
