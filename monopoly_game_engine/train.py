@@ -352,6 +352,7 @@ def train(
     watchdog=None,
     opponents=DEFAULT_OPPONENT_IDS,
     rotate_seats: bool = False,
+    keep_snapshots: bool = False,
 ) -> Dict:
     """
     Main training function.
@@ -454,6 +455,16 @@ def train(
             and absolute_game % checkpoint_every == 0
         ):
             learning_agent.save(checkpoint_path)
+            if keep_snapshots:
+                # Every checkpoint overwrites the same file, so a run whose win
+                # rate peaks mid-way and then declines leaves no way back to the
+                # good weights. That already cost us the peak of one 4000-game
+                # run. Snapshots are opt-in because they cost ~14 MB each.
+                path = Path(checkpoint_path)
+                snapshot = path.with_name(
+                    f"{path.stem}_g{absolute_game:06d}{path.suffix}"
+                )
+                learning_agent.save(str(snapshot))
 
         if result["won"]:
             wins_window += 1
