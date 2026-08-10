@@ -351,9 +351,18 @@ def train(
     checkpoint_path: str | None = None,
     watchdog=None,
     opponents=DEFAULT_OPPONENT_IDS,
+    rotate_seats: bool = False,
 ) -> Dict:
     """
     Main training function.
+
+    ``rotate_seats`` moves the learner through all four seats, one per game,
+    which is what Bonjour et al. do ("randomize the turn order to remove any
+    advantage one may get due to the player's position"). It matters here
+    because the observation's deed-ownership slots use physical player IDs and
+    do not rotate with the actor, so a learner pinned to one seat can key on
+    seat identity. Evaluation is seat-balanced, so training in seat 0 only
+    leaves a gap between training and evaluation conditions.
 
     ``opponents`` names the three policies the learner trains against. It
     defaults to Fixed-A/B/C, which is what this function always used. Naming
@@ -416,12 +425,26 @@ def train(
                 history["stop_reason"] = str(exc)
                 break
 
-        if len(opponent_plan) > 1:
+        game_pid = agent_pid
+        if rotate_seats:
+            game_pid = (agent_pid + absolute_game - 1) % NUM_PLAYERS
+            # env returns state/reward for agent_ids[0], so it has to follow
+            learning_agent.player_id = game_pid
+            env.agent_ids = [game_pid]
+            other_pids = [i for i in range(NUM_PLAYERS) if i != game_pid]
+
+        if rotate_seats or len(opponent_plan) > 1:
             fp_agents = build_opponents(
                 opponent_plan[(absolute_game - 1) % len(opponent_plan)], other_pids
             )
 
-        result = run_episode(env, learning_agent, fp_agents, agent_pid, is_ppo)
+        try:
+            result = run_episode(env, learning_agent, fp_agents, game_pid, is_ppo)
+        finally:
+            # Restore before any checkpoint save: load() checks player_id
+            # against the constructed agent, so a checkpoint written while the
+            # learner sat in seat 2 would refuse to load into seat 0.
+            learning_agent.player_id = agent_pid
         games_completed = game_num
         learning_agent.games_trained = absolute_game
 

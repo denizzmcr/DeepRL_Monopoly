@@ -39,6 +39,7 @@ def train_ppo(
     seed: int = 42,
     resume_path: str | None = None,
     opponents=DEFAULT_OPPONENT_IDS,
+    rotate_seats: bool = False,
     **kwargs,
 ):
     """Train a PPO agent. Set hybrid=True for the hybrid approach."""
@@ -60,6 +61,7 @@ def train_ppo(
         watchdog=watchdog,
         seed=seed,
         opponents=opponents,
+        rotate_seats=rotate_seats,
     )
     return agent, history
 
@@ -75,6 +77,7 @@ def train_ddqn(
     seed: int = 42,
     resume_path: str | None = None,
     opponents=DEFAULT_OPPONENT_IDS,
+    rotate_seats: bool = False,
     **kwargs,
 ):
     """Train a DDQN agent. Set hybrid=True for the hybrid approach."""
@@ -96,6 +99,7 @@ def train_ddqn(
         watchdog=watchdog,
         seed=seed,
         opponents=opponents,
+        rotate_seats=rotate_seats,
     )
     return agent, history
 
