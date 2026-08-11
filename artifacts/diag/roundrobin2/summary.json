@@ -1,0 +1,948 @@
+[
+  {
+    "candidate": "champion",
+    "field": "builders x3",
+    "win_rate": 97.5,
+    "wins": 78,
+    "games": 80,
+    "ci": [
+      91.3,
+      99.3
+    ]
+  },
+  {
+    "candidate": "champion",
+    "field": "unseen trio",
+    "win_rate": 58.75,
+    "wins": 47,
+    "games": 80,
+    "ci": [
+      47.8,
+      68.9
+    ]
+  },
+  {
+    "candidate": "champion",
+    "field": "trained trio",
+    "win_rate": 83.75,
+    "wins": 67,
+    "games": 80,
+    "ci": [
+      74.2,
+      90.3
+    ]
+  },
+  {
+    "candidate": "champion",
+    "field": "blocker mix",
+    "win_rate": 32.5,
+    "wins": 26,
+    "games": 80,
+    "ci": [
+      23.2,
+      43.4
+    ]
+  },
+  {
+    "candidate": "nohybrid_mixed",
+    "field": "builders x3",
+    "win_rate": 98.75,
+    "wins": 79,
+    "games": 80,
+    "ci": [
+      93.3,
+      99.8
+    ]
+  },
+  {
+    "candidate": "champion",
+    "field": "strong mix",
+    "win_rate": 62.5,
+    "wins": 50,
+    "games": 80,
+    "ci": [
+      51.5,
+      72.3
+    ]
+  },
+  {
+    "candidate": "champion",
+    "field": "vs nohybrid",
+    "win_rate": 21.25,
+    "wins": 17,
+    "games": 80,
+    "ci": [
+      13.7,
+      31.4
+    ]
+  },
+  {
+    "candidate": "nohybrid_mixed",
+    "field": "unseen trio",
+    "win_rate": 56.25,
+    "wins": 45,
+    "games": 80,
+    "ci": [
+      45.3,
+      66.6
+    ]
+  },
+  {
+    "candidate": "nohybrid_mixed",
+    "field": "trained trio",
+    "win_rate": 52.5,
+    "wins": 42,
+    "games": 80,
+    "ci": [
+      41.7,
+      63.1
+    ]
+  },
+  {
+    "candidate": "nohybrid_mixed",
+    "field": "strong mix",
+    "win_rate": 61.25000000000001,
+    "wins": 49,
+    "games": 80,
+    "ci": [
+      50.3,
+      71.2
+    ]
+  },
+  {
+    "candidate": "nohybrid_mixed",
+    "field": "blocker mix",
+    "win_rate": 45.0,
+    "wins": 36,
+    "games": 80,
+    "ci": [
+      34.6,
+      55.9
+    ]
+  },
+  {
+    "candidate": "champion",
+    "field": "dealmakers x3",
+    "win_rate": 31.25,
+    "wins": 25,
+    "games": 80,
+    "ci": [
+      22.2,
+      42.1
+    ]
+  },
+  {
+    "candidate": "w1_champ_s11",
+    "field": "builders x3",
+    "win_rate": 97.5,
+    "wins": 78,
+    "games": 80,
+    "ci": [
+      91.3,
+      99.3
+    ]
+  },
+  {
+    "candidate": "w1_champ_s11",
+    "field": "trained trio",
+    "win_rate": 63.74999999999999,
+    "wins": 51,
+    "games": 80,
+    "ci": [
+      52.8,
+      73.4
+    ]
+  },
+  {
+    "candidate": "nohybrid_mixed",
+    "field": "vs champion",
+    "win_rate": 22.5,
+    "wins": 18,
+    "games": 80,
+    "ci": [
+      14.7,
+      32.8
+    ]
+  },
+  {
+    "candidate": "w1_champ_s11",
+    "field": "unseen trio",
+    "win_rate": 58.75,
+    "wins": 47,
+    "games": 80,
+    "ci": [
+      47.8,
+      68.9
+    ]
+  },
+  {
+    "candidate": "nohybrid_mixed",
+    "field": "dealmakers x3",
+    "win_rate": 22.5,
+    "wins": 18,
+    "games": 80,
+    "ci": [
+      14.7,
+      32.8
+    ]
+  },
+  {
+    "candidate": "w1_champ_s11",
+    "field": "blocker mix",
+    "win_rate": 37.5,
+    "wins": 30,
+    "games": 80,
+    "ci": [
+      27.7,
+      48.5
+    ]
+  },
+  {
+    "candidate": "w1_champ_s11",
+    "field": "strong mix",
+    "win_rate": 65.0,
+    "wins": 52,
+    "games": 80,
+    "ci": [
+      54.1,
+      74.5
+    ]
+  },
+  {
+    "candidate": "w1_champ_s11",
+    "field": "vs champion",
+    "win_rate": 33.75,
+    "wins": 27,
+    "games": 80,
+    "ci": [
+      24.3,
+      44.6
+    ]
+  },
+  {
+    "candidate": "w1_champ_s22",
+    "field": "builders x3",
+    "win_rate": 95.0,
+    "wins": 76,
+    "games": 80,
+    "ci": [
+      87.8,
+      98.0
+    ]
+  },
+  {
+    "candidate": "w1_champ_s11",
+    "field": "vs nohybrid",
+    "win_rate": 22.5,
+    "wins": 18,
+    "games": 80,
+    "ci": [
+      14.7,
+      32.8
+    ]
+  },
+  {
+    "candidate": "w1_champ_s22",
+    "field": "unseen trio",
+    "win_rate": 52.5,
+    "wins": 42,
+    "games": 80,
+    "ci": [
+      41.7,
+      63.1
+    ]
+  },
+  {
+    "candidate": "w1_champ_s22",
+    "field": "trained trio",
+    "win_rate": 70.0,
+    "wins": 56,
+    "games": 80,
+    "ci": [
+      59.2,
+      78.9
+    ]
+  },
+  {
+    "candidate": "w1_champ_s11",
+    "field": "dealmakers x3",
+    "win_rate": 32.5,
+    "wins": 26,
+    "games": 80,
+    "ci": [
+      23.2,
+      43.4
+    ]
+  },
+  {
+    "candidate": "w1_champ_s22",
+    "field": "blocker mix",
+    "win_rate": 37.5,
+    "wins": 30,
+    "games": 80,
+    "ci": [
+      27.7,
+      48.5
+    ]
+  },
+  {
+    "candidate": "w1_champ_s22",
+    "field": "strong mix",
+    "win_rate": 57.49999999999999,
+    "wins": 46,
+    "games": 80,
+    "ci": [
+      46.6,
+      67.7
+    ]
+  },
+  {
+    "candidate": "w1_champ_s22",
+    "field": "vs champion",
+    "win_rate": 30.0,
+    "wins": 24,
+    "games": 80,
+    "ci": [
+      21.1,
+      40.8
+    ]
+  },
+  {
+    "candidate": "w1_champ_s22",
+    "field": "vs nohybrid",
+    "win_rate": 22.5,
+    "wins": 18,
+    "games": 80,
+    "ci": [
+      14.7,
+      32.8
+    ]
+  },
+  {
+    "candidate": "w1_champ_hi77",
+    "field": "builders x3",
+    "win_rate": 95.0,
+    "wins": 76,
+    "games": 80,
+    "ci": [
+      87.8,
+      98.0
+    ]
+  },
+  {
+    "candidate": "w1_champ_hi77",
+    "field": "unseen trio",
+    "win_rate": 56.25,
+    "wins": 45,
+    "games": 80,
+    "ci": [
+      45.3,
+      66.6
+    ]
+  },
+  {
+    "candidate": "w1_champ_hi77",
+    "field": "trained trio",
+    "win_rate": 61.25000000000001,
+    "wins": 49,
+    "games": 80,
+    "ci": [
+      50.3,
+      71.2
+    ]
+  },
+  {
+    "candidate": "w1_champ_hi77",
+    "field": "blocker mix",
+    "win_rate": 43.75,
+    "wins": 35,
+    "games": 80,
+    "ci": [
+      33.4,
+      54.7
+    ]
+  },
+  {
+    "candidate": "w1_champ_hi77",
+    "field": "strong mix",
+    "win_rate": 53.75,
+    "wins": 43,
+    "games": 80,
+    "ci": [
+      42.9,
+      64.3
+    ]
+  },
+  {
+    "candidate": "w1_champ_s22",
+    "field": "dealmakers x3",
+    "win_rate": 30.0,
+    "wins": 24,
+    "games": 80,
+    "ci": [
+      21.1,
+      40.8
+    ]
+  },
+  {
+    "candidate": "w1_champ_hi77",
+    "field": "vs champion",
+    "win_rate": 32.5,
+    "wins": 26,
+    "games": 80,
+    "ci": [
+      23.2,
+      43.4
+    ]
+  },
+  {
+    "candidate": "w1_fresh_s55",
+    "field": "builders x3",
+    "win_rate": 97.5,
+    "wins": 78,
+    "games": 80,
+    "ci": [
+      91.3,
+      99.3
+    ]
+  },
+  {
+    "candidate": "w1_champ_hi77",
+    "field": "vs nohybrid",
+    "win_rate": 26.25,
+    "wins": 21,
+    "games": 80,
+    "ci": [
+      17.9,
+      36.8
+    ]
+  },
+  {
+    "candidate": "w1_fresh_s55",
+    "field": "unseen trio",
+    "win_rate": 60.0,
+    "wins": 48,
+    "games": 80,
+    "ci": [
+      49.0,
+      70.0
+    ]
+  },
+  {
+    "candidate": "w1_fresh_s55",
+    "field": "trained trio",
+    "win_rate": 58.75,
+    "wins": 47,
+    "games": 80,
+    "ci": [
+      47.8,
+      68.9
+    ]
+  },
+  {
+    "candidate": "w1_fresh_s55",
+    "field": "blocker mix",
+    "win_rate": 52.5,
+    "wins": 42,
+    "games": 80,
+    "ci": [
+      41.7,
+      63.1
+    ]
+  },
+  {
+    "candidate": "w1_champ_hi77",
+    "field": "dealmakers x3",
+    "win_rate": 31.25,
+    "wins": 25,
+    "games": 80,
+    "ci": [
+      22.2,
+      42.1
+    ]
+  },
+  {
+    "candidate": "w1_fresh_s55",
+    "field": "strong mix",
+    "win_rate": 56.25,
+    "wins": 45,
+    "games": 80,
+    "ci": [
+      45.3,
+      66.6
+    ]
+  },
+  {
+    "candidate": "w1_fresh_s55",
+    "field": "vs champion",
+    "win_rate": 36.25,
+    "wins": 29,
+    "games": 80,
+    "ci": [
+      26.6,
+      47.2
+    ]
+  },
+  {
+    "candidate": "w1_fresh_s66",
+    "field": "builders x3",
+    "win_rate": 97.5,
+    "wins": 78,
+    "games": 80,
+    "ci": [
+      91.3,
+      99.3
+    ]
+  },
+  {
+    "candidate": "w1_fresh_s55",
+    "field": "vs nohybrid",
+    "win_rate": 31.25,
+    "wins": 25,
+    "games": 80,
+    "ci": [
+      22.2,
+      42.1
+    ]
+  },
+  {
+    "candidate": "w1_fresh_s66",
+    "field": "unseen trio",
+    "win_rate": 68.75,
+    "wins": 55,
+    "games": 80,
+    "ci": [
+      57.9,
+      77.8
+    ]
+  },
+  {
+    "candidate": "w1_fresh_s66",
+    "field": "trained trio",
+    "win_rate": 57.49999999999999,
+    "wins": 46,
+    "games": 80,
+    "ci": [
+      46.6,
+      67.7
+    ]
+  },
+  {
+    "candidate": "w1_fresh_s55",
+    "field": "dealmakers x3",
+    "win_rate": 31.25,
+    "wins": 25,
+    "games": 80,
+    "ci": [
+      22.2,
+      42.1
+    ]
+  },
+  {
+    "candidate": "w1_fresh_s66",
+    "field": "strong mix",
+    "win_rate": 67.5,
+    "wins": 54,
+    "games": 80,
+    "ci": [
+      56.6,
+      76.8
+    ]
+  },
+  {
+    "candidate": "w1_fresh_s66",
+    "field": "blocker mix",
+    "win_rate": 57.49999999999999,
+    "wins": 46,
+    "games": 80,
+    "ci": [
+      46.6,
+      67.7
+    ]
+  },
+  {
+    "candidate": "w1_fresh_hi99",
+    "field": "builders x3",
+    "win_rate": 96.25,
+    "wins": 77,
+    "games": 80,
+    "ci": [
+      89.5,
+      98.7
+    ]
+  },
+  {
+    "candidate": "w1_fresh_s66",
+    "field": "vs champion",
+    "win_rate": 35.0,
+    "wins": 28,
+    "games": 80,
+    "ci": [
+      25.5,
+      45.9
+    ]
+  },
+  {
+    "candidate": "w1_fresh_s66",
+    "field": "vs nohybrid",
+    "win_rate": 28.749999999999996,
+    "wins": 23,
+    "games": 80,
+    "ci": [
+      20.0,
+      39.5
+    ]
+  },
+  {
+    "candidate": "w1_fresh_hi99",
+    "field": "unseen trio",
+    "win_rate": 60.0,
+    "wins": 48,
+    "games": 80,
+    "ci": [
+      49.0,
+      70.0
+    ]
+  },
+  {
+    "candidate": "w1_fresh_hi99",
+    "field": "trained trio",
+    "win_rate": 61.25000000000001,
+    "wins": 49,
+    "games": 80,
+    "ci": [
+      50.3,
+      71.2
+    ]
+  },
+  {
+    "candidate": "w1_fresh_s66",
+    "field": "dealmakers x3",
+    "win_rate": 31.25,
+    "wins": 25,
+    "games": 80,
+    "ci": [
+      22.2,
+      42.1
+    ]
+  },
+  {
+    "candidate": "w1_fresh_hi99",
+    "field": "strong mix",
+    "win_rate": 63.74999999999999,
+    "wins": 51,
+    "games": 80,
+    "ci": [
+      52.8,
+      73.4
+    ]
+  },
+  {
+    "candidate": "w1_fresh_hi99",
+    "field": "blocker mix",
+    "win_rate": 42.5,
+    "wins": 34,
+    "games": 80,
+    "ci": [
+      32.3,
+      53.4
+    ]
+  },
+  {
+    "candidate": "w1_weak_s111",
+    "field": "builders x3",
+    "win_rate": 96.25,
+    "wins": 77,
+    "games": 80,
+    "ci": [
+      89.5,
+      98.7
+    ]
+  },
+  {
+    "candidate": "w1_fresh_hi99",
+    "field": "vs champion",
+    "win_rate": 33.75,
+    "wins": 27,
+    "games": 80,
+    "ci": [
+      24.3,
+      44.6
+    ]
+  },
+  {
+    "candidate": "w1_fresh_hi99",
+    "field": "vs nohybrid",
+    "win_rate": 22.5,
+    "wins": 18,
+    "games": 80,
+    "ci": [
+      14.7,
+      32.8
+    ]
+  },
+  {
+    "candidate": "w1_weak_s111",
+    "field": "unseen trio",
+    "win_rate": 58.75,
+    "wins": 47,
+    "games": 80,
+    "ci": [
+      47.8,
+      68.9
+    ]
+  },
+  {
+    "candidate": "w1_weak_s111",
+    "field": "trained trio",
+    "win_rate": 52.5,
+    "wins": 42,
+    "games": 80,
+    "ci": [
+      41.7,
+      63.1
+    ]
+  },
+  {
+    "candidate": "w1_weak_s111",
+    "field": "blocker mix",
+    "win_rate": 37.5,
+    "wins": 30,
+    "games": 80,
+    "ci": [
+      27.7,
+      48.5
+    ]
+  },
+  {
+    "candidate": "w1_fresh_hi99",
+    "field": "dealmakers x3",
+    "win_rate": 32.5,
+    "wins": 26,
+    "games": 80,
+    "ci": [
+      23.2,
+      43.4
+    ]
+  },
+  {
+    "candidate": "w1_weak_s111",
+    "field": "strong mix",
+    "win_rate": 53.75,
+    "wins": 43,
+    "games": 80,
+    "ci": [
+      42.9,
+      64.3
+    ]
+  },
+  {
+    "candidate": "w1_weak_s111",
+    "field": "vs champion",
+    "win_rate": 33.75,
+    "wins": 27,
+    "games": 80,
+    "ci": [
+      24.3,
+      44.6
+    ]
+  },
+  {
+    "candidate": "w1_weak_s123",
+    "field": "builders x3",
+    "win_rate": 93.75,
+    "wins": 75,
+    "games": 80,
+    "ci": [
+      86.2,
+      97.3
+    ]
+  },
+  {
+    "candidate": "w1_weak_s111",
+    "field": "vs nohybrid",
+    "win_rate": 36.25,
+    "wins": 29,
+    "games": 80,
+    "ci": [
+      26.6,
+      47.2
+    ]
+  },
+  {
+    "candidate": "w1_weak_s123",
+    "field": "unseen trio",
+    "win_rate": 46.25,
+    "wins": 37,
+    "games": 80,
+    "ci": [
+      35.7,
+      57.1
+    ]
+  },
+  {
+    "candidate": "w1_weak_s123",
+    "field": "trained trio",
+    "win_rate": 43.75,
+    "wins": 35,
+    "games": 80,
+    "ci": [
+      33.4,
+      54.7
+    ]
+  },
+  {
+    "candidate": "w1_weak_s123",
+    "field": "blocker mix",
+    "win_rate": 56.25,
+    "wins": 45,
+    "games": 80,
+    "ci": [
+      45.3,
+      66.6
+    ]
+  },
+  {
+    "candidate": "w1_weak_s111",
+    "field": "dealmakers x3",
+    "win_rate": 32.5,
+    "wins": 26,
+    "games": 80,
+    "ci": [
+      23.2,
+      43.4
+    ]
+  },
+  {
+    "candidate": "w1_weak_s123",
+    "field": "strong mix",
+    "win_rate": 40.0,
+    "wins": 32,
+    "games": 80,
+    "ci": [
+      30.0,
+      51.0
+    ]
+  },
+  {
+    "candidate": "w1_weak_s123",
+    "field": "vs champion",
+    "win_rate": 45.0,
+    "wins": 36,
+    "games": 80,
+    "ci": [
+      34.6,
+      55.9
+    ]
+  },
+  {
+    "candidate": "asu_lineage",
+    "field": "builders x3",
+    "win_rate": 96.25,
+    "wins": 77,
+    "games": 80,
+    "ci": [
+      89.5,
+      98.7
+    ]
+  },
+  {
+    "candidate": "w1_weak_s123",
+    "field": "vs nohybrid",
+    "win_rate": 36.25,
+    "wins": 29,
+    "games": 80,
+    "ci": [
+      26.6,
+      47.2
+    ]
+  },
+  {
+    "candidate": "asu_lineage",
+    "field": "trained trio",
+    "win_rate": 81.25,
+    "wins": 65,
+    "games": 80,
+    "ci": [
+      71.3,
+      88.3
+    ]
+  },
+  {
+    "candidate": "asu_lineage",
+    "field": "unseen trio",
+    "win_rate": 57.49999999999999,
+    "wins": 46,
+    "games": 80,
+    "ci": [
+      46.6,
+      67.7
+    ]
+  },
+  {
+    "candidate": "w1_weak_s123",
+    "field": "dealmakers x3",
+    "win_rate": 31.25,
+    "wins": 25,
+    "games": 80,
+    "ci": [
+      22.2,
+      42.1
+    ]
+  },
+  {
+    "candidate": "asu_lineage",
+    "field": "strong mix",
+    "win_rate": 56.25,
+    "wins": 45,
+    "games": 80,
+    "ci": [
+      45.3,
+      66.6
+    ]
+  },
+  {
+    "candidate": "asu_lineage",
+    "field": "blocker mix",
+    "win_rate": 33.75,
+    "wins": 27,
+    "games": 80,
+    "ci": [
+      24.3,
+      44.6
+    ]
+  },
+  {
+    "candidate": "asu_lineage",
+    "field": "vs champion",
+    "win_rate": 22.5,
+    "wins": 18,
+    "games": 80,
+    "ci": [
+      14.7,
+      32.8
+    ]
+  },
+  {
+    "candidate": "asu_lineage",
+    "field": "vs nohybrid",
+    "win_rate": 16.25,
+    "wins": 13,
+    "games": 80,
+    "ci": [
+      9.7,
+      25.8
+    ]
+  },
+  {
+    "candidate": "asu_lineage",
+    "field": "dealmakers x3",
+    "win_rate": 30.0,
+    "wins": 24,
+    "games": 80,
+    "ci": [
+      21.1,
+      40.8
+    ]
+  }
+]
