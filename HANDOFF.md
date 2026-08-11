@@ -26,7 +26,7 @@ Measured, seat-balanced, 80 games per cell (`artifacts/diag/roundrobin2/summary.
 | trained trio (Fixed-A/B/C) | 57.5% |
 | unseen trio (Fixed-D/E/F) | 68.8% |
 | builders x3 | 97.5% |
-| dealmakers x3 | **31.2%** |
+| dealmakers x3 | 35.5% (measured over 2500 games; the 31.2% here came from an 80-game cell) |
 | strong mix | 67.5% |
 | blocker mix | 57.5% |
 | vs a rival neural agent | 35.0% |
@@ -88,22 +88,33 @@ training through them. Add new modules instead.
 - **`SUBMISSION.md`**: checkpoint SHA-256, the table above, opponent identity,
   seed sets, and the round-cap/truncation counts.
 
-### 2. Diagnose the Deal-Maker weakness (~2-3 h, needs compute)
+### 2. ANSWERED on 2026-08-11 — do not redo this
 
-**Every agent we have ever trained scores ~31% against three Fixed-B
-(Deal-Maker) opponents** — the champion, all eight league agents, the ASU one.
-The league contained that exact field and it changed nothing, so it is not a
-matter of exposure. Something structural about aggressive-trading opponents
-beats us, and if a rival team ships a trade-heavy agent, that is where we lose.
+The "~31% against Deal-Makers" weakness was measured on 80-game cells. At 2,500
+games it is **35.5%**, and parity in a four-player game is 25%, so the champion
+is above its share even there. More importantly, the mechanism is not weakness:
 
-Start from game logs, not from training: export games against `fixed-b fixed-b
-fixed-b` with `tools/export_game_logs.py` and compare them with games against
-Fixed-D/E/F. Look for what differs — who owns what by round 30, how many trades
-complete, whether we are being traded into a weak position, whether rent income
-diverges. The answer should be visible in the record before anyone trains
-anything.
+| | vs three Deal-Makers | vs Fixed-A/B/C |
+|---|---|---|
+| games hitting the 200-round cap | **73%** | ~15% |
+| mean rounds | **172** | 100 |
+| players bankrupt at game end | **0.92** of 4 | 2.75 of 4 |
+| largest portfolio anyone holds | 14.6 deeds | 25.7 deeds |
 
-### 3. Parallel trajectory collection (~1-2 h, unlocks everything ASU)
+Three aggressive traders keep the board fragmented — nobody assembles a
+dominant position, so rents stay low, nobody goes bankrupt, and the game runs to
+the cap where the winner is decided on net worth. It is close to a coin flip
+among four survivors, and we take 35.5% of it. The league could not "fix" this
+because there is nothing to fix; it is a property of that opponent field.
+
+The open follow-up, if anyone wants it: in cap-decided games the objective is
+maximum net worth rather than elimination. Whether the agent should play
+differently once a game is clearly heading for the cap is untested.
+
+Game records for this matchup are in `artifacts/game_logs/full/dealmakers/`
+(2,500 games) and `artifacts/game_logs/full/blockers/` (2,500).
+
+### 3. Parallel trajectory collection — NOW THE SECOND PRIORITY (~1-2 h)
 
 PPO here plays one game at a time in one process, which is why ASU experiments
 are prohibitive: 275 games in 10 hours. Workers playing games with the current
