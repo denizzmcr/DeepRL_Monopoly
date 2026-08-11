@@ -22,7 +22,9 @@ Usage:
 """
 
 import argparse
+import gzip
 import json
+import multiprocessing as mp
 import random
 import sys
 from datetime import datetime, timezone
@@ -189,6 +191,41 @@ def write_transcript(record, path):
     path.write_text("\n".join(lines) + "\n")
 
 
+def export_one(job):
+    """Play and write a single game. Top-level so it can be pooled."""
+    seed, order, max_rounds, out_dir, compress, transcript = job
+    out = Path(out_dir)
+    name = f"game_{seed:06d}"
+    target = out / (f"{name}.jsonl.gz" if compress else f"{name}.jsonl")
+    if target.exists():
+        return None                      # resumable: skip what already exists
+
+    record = play_and_record(order, seed, max_rounds)
+    lines = "\n".join(
+        json.dumps(x) for x in
+        [{"type": "header", **{k: v for k, v in record.items() if k != "events"}}]
+        + [{"type": "event", **e} for e in record["events"]]
+    ) + "\n"
+
+    if compress:
+        # Event streams are highly repetitive and compress roughly 10:1, which
+        # is the difference between a shareable archive and a dozen gigabytes.
+        with gzip.open(target, "wt") as handle:
+            handle.write(lines)
+    else:
+        target.write_text(lines)
+    if transcript:
+        write_transcript(record, out / f"{name}.txt")
+
+    return {
+        "game": name, "seed": seed, "winner": record["winner"],
+        "winner_policy": (record["players"][str(record["winner"])]
+                          if record["winner"] is not None else None),
+        "rounds": record["rounds"], "actions": len(record["events"]),
+        "truncated": record["truncated_at_round_cap"],
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Export complete Monopoly game records")
     parser.add_argument(
@@ -201,38 +238,42 @@ def main() -> int:
     parser.add_argument("--out-dir", default=str(ROOT / "artifacts" / "game_logs"))
     parser.add_argument("--rotate-seats", action="store_true",
                         help="rotate the first policy through all four seats")
+    parser.add_argument("--workers", type=int, default=1)
+    parser.add_argument("--compress", action="store_true",
+                        help="gzip the JSONL; about 10x smaller, needed at scale")
+    parser.add_argument("--no-transcript", dest="transcript", action="store_false",
+                        help="skip the .txt transcripts; halves the output size")
     args = parser.parse_args()
 
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    index = []
 
+    jobs = []
     for i in range(args.games):
         seed = args.seed_base + i
         order = list(args.players)
         if args.rotate_seats:
             shift = i % NUM_PLAYERS
             order = order[-shift:] + order[:-shift] if shift else order
-        record = play_and_record(order, seed, args.max_rounds)
+        jobs.append((seed, order, args.max_rounds, str(out),
+                     args.compress, args.transcript))
 
-        name = f"game_{seed:06d}"
-        (out / f"{name}.jsonl").write_text(
-            "\n".join(
-                json.dumps(x) for x in
-                [{"type": "header", **{k: v for k, v in record.items() if k != "events"}}]
-                + [{"type": "event", **e} for e in record["events"]]
-            ) + "\n"
-        )
-        write_transcript(record, out / f"{name}.txt")
-        index.append({
-            "game": name, "seed": seed, "winner": record["winner"],
-            "winner_policy": record["players"][str(record["winner"])] if record["winner"] is not None else None,
-            "rounds": record["rounds"], "actions": len(record["events"]),
-            "truncated": record["truncated_at_round_cap"],
-        })
-        print(f"  {name}: winner seat {record['winner']} "
-              f"({index[-1]['winner_policy']}), {record['rounds']} rounds, "
-              f"{len(record['events'])} actions", flush=True)
+    index = []
+    if args.workers > 1:
+        with mp.get_context("spawn").Pool(processes=args.workers) as pool:
+            for done, r in enumerate(pool.imap_unordered(export_one, jobs), start=1):
+                if r:
+                    index.append(r)
+                if done % 50 == 0 or done == len(jobs):
+                    print(f"  {done}/{len(jobs)} games", flush=True)
+    else:
+        for job in jobs:
+            r = export_one(job)
+            if r:
+                index.append(r)
+                print(f"  {r['game']}: winner seat {r['winner']} "
+                      f"({r['winner_policy']}), {r['rounds']} rounds, "
+                      f"{r['actions']} actions", flush=True)
 
     (out / "index.json").write_text(json.dumps({
         "exported": datetime.now(timezone.utc).isoformat(timespec="seconds"),
