@@ -172,6 +172,7 @@ def run_episode(
     agent_pid: int,
     is_ppo: bool,
     update_online: bool = True,
+    reward_mode: str = "potential",
 ) -> Dict:
     """
     Run one complete game. The learning agent occupies position agent_pid,
@@ -202,6 +203,18 @@ def run_episode(
 
     def potential_delta(start: float, terminal: bool = False) -> float:
         next_potential = 0.0 if terminal else env._compute_reward(agent_pid)
+        if reward_mode == "absolute":
+            # Bonjour et al. Eq. 1: the in-game reward is the relative net-worth
+            # position itself at every step, and the terminal step pays only the
+            # win/loss constant c (added separately by add_win_loss).
+            #
+            # This differs from the default in a way that may set our ceiling.
+            # Potential-difference shaping telescopes: summed over an episode the
+            # intermediate terms cancel and little gradient remains once the
+            # coarse lessons are learned, which matches the flat learning curves
+            # measured across 41 checkpoints. An absolute reward pays for being
+            # ahead on every step, so the signal never washes out.
+            return 0.0 if terminal else float(next_potential)
         gamma = getattr(learning_agent, "gamma", 0.99)
         decision_penalty = getattr(learning_agent, "decision_penalty", 0.0)
         return float(
@@ -425,6 +438,7 @@ def train(
     opponents=DEFAULT_OPPONENT_IDS,
     rotate_seats: bool = False,
     keep_snapshots: bool = False,
+    reward_mode: str = "potential",
 ) -> Dict:
     """
     Main training function.
@@ -512,7 +526,10 @@ def train(
             )
 
         try:
-            result = run_episode(env, learning_agent, fp_agents, game_pid, is_ppo)
+            result = run_episode(
+                env, learning_agent, fp_agents, game_pid, is_ppo,
+                reward_mode=reward_mode,
+            )
         finally:
             # Restore before any checkpoint save: load() checks player_id
             # against the constructed agent, so a checkpoint written while the
@@ -601,6 +618,7 @@ def evaluate(
     n_runs: int = 5,
     seed: int = 0,
     opponents=DEFAULT_OPPONENT_IDS,
+    reward_mode: str = "potential",
 ) -> Dict:
     """
     Evaluate a trained agent over n_runs × n_games against ``opponents``.
@@ -626,7 +644,8 @@ def evaluate(
         run_ti = run_ta = run_td = run_pa = 0
         for _ in range(n_games):
             result = run_episode(
-                env, learning_agent, fp_agents, agent_pid, is_ppo, update_online=False
+                env, learning_agent, fp_agents, agent_pid, is_ppo,
+                update_online=False, reward_mode=reward_mode,
             )
             if result["won"]:
                 wins += 1
