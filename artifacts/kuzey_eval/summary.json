@@ -1,5 +1,88 @@
 [
   {
+    "capped_games": 1,
+    "capped_percent": 0.5,
+    "decision_valve_truncations": 0,
+    "elapsed_seconds": 14157.93241779998,
+    "focus": "kuzey",
+    "games": 200,
+    "kuzey_decisions": 71500,
+    "kuzey_ms_per_decision": 0.35670741538461537,
+    "kuzey_self_clamps": 0,
+    "label": "kuzey-vs-3xASU",
+    "mean_rounds": 48.295,
+    "opponents": [
+      "asu-value-v1",
+      "asu-value-v1",
+      "asu-value-v1"
+    ],
+    "policies": {
+      "asu-value-v1": {
+        "appearances": 600,
+        "cap_wins": 1,
+        "mean_net_worth": 9412.9025,
+        "outright_wins": 169,
+        "share_of_wins_at_cap": 0.5882352941176471,
+        "wilson_95": [
+          24.874395753830093,
+          32.06794462343028
+        ],
+        "win_rate": 28.333333333333332,
+        "wins": 170,
+        "wins_by_seat": {
+          "0": [
+            39,
+            150
+          ],
+          "1": [
+            33,
+            150
+          ],
+          "2": [
+            52,
+            150
+          ],
+          "3": [
+            46,
+            150
+          ]
+        }
+      },
+      "kuzey": {
+        "appearances": 200,
+        "cap_wins": 0,
+        "mean_net_worth": 4722.305,
+        "outright_wins": 30,
+        "share_of_wins_at_cap": 0.0,
+        "wilson_95": [
+          10.713593562241995,
+          20.60557928416666
+        ],
+        "win_rate": 15.0,
+        "wins": 30,
+        "wins_by_seat": {
+          "0": [
+            9,
+            50
+          ],
+          "1": [
+            7,
+            50
+          ],
+          "2": [
+            10,
+            50
+          ],
+          "3": [
+            4,
+            50
+          ]
+        }
+      }
+    },
+    "scripted_fallbacks": 0
+  },
+  {
     "capped_games": 39,
     "capped_percent": 19.5,
     "decision_valve_truncations": 0,

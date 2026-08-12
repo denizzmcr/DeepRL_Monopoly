@@ -7,21 +7,19 @@ Everything below is measured on this machine unless it is labelled as somebody
 else's number. Where a claim did not reproduce, the failed reproduction is the
 result, not a footnote.
 
-> **Sample sizes are stated on every number.** Three of the four runs are
-> complete at n=200. The ASU run is at **n=50 of 200** and still going; its
-> interval already excludes the claim by 37 points, and §2.3 shows the partial
-> sample is biased in the claim's favour, not against it. This note will be
-> removed when it finishes.
+> **All four runs are complete at n=200**, seat-balanced, seeds 0–49. Sample
+> sizes are stated on every number.
 
 ---
 
 ## 1. Summary
 
-**The 0.63 does not reproduce. Kuzey's heuristic scores 14.0% against our ASU
-(n=50, CI 7.0–26.2) — below the 25% parity line, not 63.6%.** The original figure
-was measured against `asu_class`, an opponent that is not in this repository, is
-rated mid-ladder by Kuzey's own round robin, and has a documented auction
-weakness that Kuzey's agent contains a purpose-built rule to exploit.
+**The 0.63 does not reproduce. Kuzey's heuristic scores 15.0% against our ASU
+(n=200, CI 10.7–20.6) — significantly *below* the 25% parity line, not 63.6%.**
+The claimed figure sits 43 points above the interval's upper bound. The original
+number was measured against `asu_class`, an opponent that is not in this
+repository, is rated mid-ladder by Kuzey's own round robin, and has a documented
+auction weakness that Kuzey's agent contains a purpose-built rule to exploit.
 
 **It should not be our submission** — it is a hand-written rule set, which the
 rules forbid, and the number that made it look tempting was not a number about
@@ -29,7 +27,7 @@ our ASU.
 
 **Everything else about it checks out, and it is the best training opponent we
 have.** Its package self-test passes, its vendored engine is byte-identical to
-ours where the game is defined, it emits no illegal actions in 533,227 decisions,
+ours where the game is defined, it emits no illegal actions in 604,727 decisions,
 and it beats our champion by ~12 points on identical seeds against scripted
 fields.
 
@@ -39,11 +37,14 @@ scripted agent it otherwise dominates.
 
 | measurement | result | n |
 |---|---|---|
-| Kuzey vs 3× `asu-value-v1` — **the claim** | **14.0%** [7.0, 26.2] | 50 / 200 |
+| Kuzey vs 3× `asu-value-v1` — **the claim** | **15.0%** [10.7, 20.6] | 200 |
 | Kuzey vs Fixed-A/B/C | 76.0% [69.6, 81.4] | 200 |
 | Kuzey vs Fixed-D/E/F | 85.5% [80.0, 89.7] | 200 |
 | Kuzey vs `CHAMPION.pt` + `fixed-a` + `fixed-d` | 78.5% [72.3, 83.6] | 200 |
 | — `CHAMPION.pt` at that same table | 8.0% [5.0, 12.6] | 200 |
+
+Every figure is seat-balanced over seeds 0–49 with the focus agent playing all
+four seats on the same dice.
 
 ---
 
@@ -109,43 +110,47 @@ claim assumes.
 
 `kuzey` vs three `asu-value-v1`, seat-balanced, seeds 0–49.
 
-> **Sample so far: 50 of 200 games.** This run costs ~6 minutes per game on this
-> machine and is still going; the table is updated as it completes. The interval
-> at n=50 already excludes the claim by a wide margin, and §2.3 explains why
-> finishing the run is not expected to move it up.
+200 games, 3.9 hours of wall-clock at ~6 minutes per game.
 
 | | wins / games | win rate | Wilson 95% |
 |---|---|---|---|
-| **`kuzey` vs 3× `asu-value-v1`** | **7 / 50** | **14.0%** | **7.0 – 26.2** |
+| **`kuzey` vs 3× `asu-value-v1`** | **30 / 200** | **15.0%** | **10.7 – 20.6** |
+| `asu-value-v1` (pooled, 600 seat-appearances) | 170 / 600 | 28.3% | 24.9 – 32.1 |
 | the claim, for comparison | — | 63.6% | — |
 | parity in a four-player game | — | 25.0% | — |
 
 **The claim does not reproduce.** 63.6% is not merely outside the 95% interval,
-it is 37 points above its upper bound. Kuzey against our ASU is **below parity**,
-not dominant over it.
+it is **43 points above its upper bound**. And the interval's upper bound (20.6%)
+now sits below the 25% parity line, so this is not "Kuzey fails to beat ASU" —
+it is **Kuzey significantly losing to ASU**, while each ASU seat runs above parity.
 
-Supporting detail: 0 of 50 games reached the round cap and the mean game length
-is 47.8 rounds, so nothing here is decided by net-worth accounting at a stalemate
-— these games resolve outright, and mostly not in Kuzey's favour. Wins were
-spread across seats (3/12, 1/13, 3/13, 0/12), so the result is not a seat
-artifact.
+Supporting detail:
 
-### 2.3 The interim sample is biased *towards* Kuzey, not against it
+* **1 of 200 games reached the round cap**, mean length 48.3 rounds. Nothing here
+  is decided by net-worth accounting at a stalemate; 169 of ASU's 170 wins were
+  outright bankruptcies. This field resolves cleanly and it resolves against
+  Kuzey.
+* **Seat-balanced with 50 games in every seat**: Kuzey won 9, 7, 10, and 4. No
+  seat carries the result.
+* **0 internal fail-safe clamps in 71,500 decisions** here too — the legality
+  result in §3.6 holds against ASU as well as against scripted opposition.
 
-Games are written as they finish, so a partial sample over-represents whichever
-games complete fastest. Among the 50 finished, **Kuzey's wins take 209 s of
-wall-clock on average and its losses take 302 s**, at near-identical round counts
-(50.1 vs 47.4). Fast games are therefore disproportionately *wins*, so the
-completed subset flatters Kuzey and the full-sample figure should land at or
-below 14%, not above it.
+### 2.3 The sample is biased *towards* Kuzey, not against it
+
+Games were written as they finished, and this bias was checked at n=50, n=100 and
+at the full n=200. It points the same way every time: **Kuzey's wins take 342 s
+of wall-clock on average and its losses take 434 s.** Faster games are
+disproportionately wins, so any partial sample flatters Kuzey. The estimate ran
+14.0% at n=50, 14.9% at n=101 and 15.0% at n=200 — stable, and never trending
+towards the claim.
 
 ### 2.4 How this compares to our own agent
 
 `HANDOFF.md` records `CHAMPION.pt` at **~17%** against 3× ASU. That number was
 produced by Machine 1 on a seed set we do not have, so it is **not paired** with
-the 14% above and the two should not be differenced. What can be said is that
-both sit in the same band, below the 25% parity line, and the gap between them is
-smaller than the width of either interval.
+the 15.0% above and the two should not be differenced. What can be said is that
+17% falls inside Kuzey's 95% interval [10.7, 20.6]: on the evidence available the
+two are indistinguishable, and both lose to ASU.
 
 A paired champion-vs-3×ASU run on seeds 0–49 was started and then abandoned: at
 ~6 minutes per game it costs another 3.3 hours, and it cannot change the
@@ -247,7 +252,7 @@ this is 68.75% → 8.0%.
 
 ### 3.6 Legality and cost
 
-Over **533,227 decisions** across the three fields above:
+Over **604,727 decisions** across all four fields:
 
 * **0 illegal actions.** Confirmed, but note *why* it is guaranteed:
   `spine.py:347-348` clamps the agent's own choice to `END_TURN` (or the first
@@ -335,8 +340,10 @@ repository even though the ~150 KB per-game dumps are not.
 
 ## 5. What was not measured
 
-* **A paired `CHAMPION.pt` vs 3× ASU run** (§2.4). Started, abandoned on cost;
-  cannot change the conclusion.
+* **A paired `CHAMPION.pt` vs 3× ASU run** (§2.4). Started, abandoned on cost —
+  the Kuzey run alone took 3.9 hours. It would sharpen the Kuzey-vs-champion
+  comparison against ASU, which is currently "indistinguishable, both losing",
+  but it cannot change the verdict on the claim under test.
 * **Kuzey against a real rival agent.** Every number here — and every number in
   Kuzey's own docs — is against fixed archetypes, our ASU, our checkpoint, or
   copies of itself. Their CLAUDE.md says this plainly: *"It is also not tested
@@ -364,10 +371,11 @@ Two independent reasons, either one sufficient:
    made it look worth reopening.
 
 2. **The number that made it look worth reopening is wrong.** Kuzey against our
-   ASU is **14.0%** (n=50, CI 7.0–26.2), not 63.6% — below parity, and in the
-   same band as our own champion's ~17%. The 63.6% was measured against a
-   different, unshipped, mid-ladder opponent, by an agent carrying a rule built
-   to exploit that specific opponent's documented auction weakness (§2.1).
+   ASU is **15.0%** (n=200, CI 10.7–20.6), not 63.6% — significantly below
+   parity, and statistically indistinguishable from our own champion's ~17%. The
+   63.6% was measured against a different, unshipped, mid-ladder opponent, by an
+   agent carrying a rule built to exploit that specific opponent's documented
+   auction weakness (§2.1).
 
 **What the heuristic is genuinely good for, and it is worth real effort:**
 
