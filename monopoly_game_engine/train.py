@@ -42,6 +42,8 @@ OPPONENT_IDS = (
     *(f"fixed-{letter}" for letter in "abcdef"),
     "asu-value-v1",
     "asu-rollout-v1",
+    "kuzey",          # teammate's heuristic: strongest and fastest opponent we have
+    "kuzey-plus",
 )
 DEFAULT_OPPONENT_IDS = ("fixed-a", "fixed-b", "fixed-c")
 
@@ -129,6 +131,46 @@ class FrozenPolicyOpponent:
         return int(scores.argmax().item())
 
 
+class KuzeyHeuristicOpponent:
+    """Kuzey's hand-written heuristic, played as a league opponent.
+
+    The strongest opponent available to us and nearly free: 77.5% against
+    Fixed-A/B/C where our champion scores 55%, at 0.07 ms per decision against
+    ASU's 57 ms. That combination is why the league can now afford strong
+    opposition in most fields instead of rationing it.
+
+    Imported lazily from external/, like ASU, so nothing in the submitted agent's
+    import graph reaches it and so a missing external/ only breaks the leagues
+    that ask for it.
+    """
+
+    _cache: dict = {}
+
+    def __init__(self, player_id: int, variant: str = "champion"):
+        import sys as _sys
+        from pathlib import Path as _Path
+
+        root = _Path(__file__).resolve().parents[1] / "external" / "kuzey" / "Kuzeys_heuristic"
+        if not root.exists():
+            raise ValueError(f"Kuzey heuristic not found at {root}")
+        if str(root) not in _sys.path:
+            _sys.path.insert(0, str(root))
+        # our engine is already imported by the time this runs, and their binder
+        # is idempotent, so it will not replace it with their vendored copy
+        import heuristic as _h
+
+        self.player_id = player_id
+        cls = {"champion": _h.Champion, "plus": _h.ChampionPlus,
+               "spine": _h.Spine}.get(variant, _h.Champion)
+        key = (variant, player_id)
+        if key not in KuzeyHeuristicOpponent._cache:
+            KuzeyHeuristicOpponent._cache[key] = cls()
+        self.agent = KuzeyHeuristicOpponent._cache[key]
+
+    def choose_action(self, env) -> int:
+        return int(self.agent.choose_action(env, self.player_id, 0))
+
+
 def build_opponents(ids, player_ids):
     """Instantiate the named opponent policies on the given seats.
 
@@ -155,6 +197,10 @@ def build_opponents(ids, player_ids):
                 f"Unknown opponent {identifier!r}; expected one of {OPPONENT_IDS} "
                 "or ppo:/path/to/checkpoint.pt"
             )
+        if identifier.startswith("kuzey"):
+            variant = "plus" if identifier.endswith("-plus") else "champion"
+            agents.append(KuzeyHeuristicOpponent(pid, variant))
+            continue
         if identifier.startswith("asu-"):
             from ASU_FROZEN_TEACHER import ASURolloutV1, ASUValueV1
 

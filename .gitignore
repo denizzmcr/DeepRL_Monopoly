@@ -3,3 +3,8 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .env
+
+# personal explainer, not part of the project
+PROJECT_EXPLAINED.txt
+external/
+artifacts/incoming/
