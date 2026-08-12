@@ -61,45 +61,68 @@ ARMS = (512, 1024)
 
 
 def league(mode="fast"):
-    """16 fields. Kuzey's heuristic carries the strong opposition; ASU adds a
-    different strong style at a rationed cost.
+    """Opponent fields. `mode="asu"` adds the expensive ASU fields.
 
-    The design changed when Kuzey's heuristic arrived: it scores 77.5% against
-    Fixed-A/B/C where our champion gets 55%, at 0.07 ms per decision against
-    ASU's 57 ms. Strong opposition used to cost 55 s a game, which is why ASU was
-    rationed to a quarter of the league. It is now nearly free, so five fields
-    carry it, including three copies of it -- the hardest table we can build.
+    Widened for a 44-core host. On 12 cores the league was kept small because
+    every ASU field costs ~55 s/game against ~1 s for the rest, and a synchronous
+    collection round waits on its slowest game. With 40 workers many ASU games
+    run concurrently, so breadth is affordable -- and breadth is the whole point:
+    an agent trained on a narrow cast becomes a specialist, which we measured at
+    86.5% on its training trio and 19.0% when one opponent changed.
 
-    ASU stays in two fields rather than none: it is strong in a different way,
-    and a competitor is shipping an ASU clone, so it is a known match-day style
-    even though it is expensive.
+    Design rules, each from a measurement:
+      * no single opponent dominates -- Kuzey's heuristic is strong (77.5% vs
+        Fixed-A/B/C where our champion gets 55%) and deterministic, so an agent
+        seeing it too often learns its habits rather than Monopoly
+      * ASU appears in several shapes, not just three-of-a-kind, because the
+        realistic tournament is one strong opponent and two others
+      * collapsed agents are included: the default path in this repo produces a
+        0-2% agent, which is the most likely competitor submission
+      * our own past agents are included: on match day every opponent is another
+        team's network, and neural fields are where we score worst
     """
     champ = f"ppo:{REPO}/artifacts/CHAMPION.pt"
     nohyb = f"ppo:{DIAG}/ppo_nohybrid_mixed.pt"
     broken = f"ppo:{DIAG}/ppo_default.pt"
+
+    asu_fields = [
+        ("asu-value-v1", "asu-value-v1", "asu-value-v1"),
+        ("asu-value-v1", "kuzey", "fixed-d"),
+        ("asu-value-v1", champ, "fixed-d"),
+        ("asu-value-v1", "fixed-b", "fixed-d"),
+        ("asu-value-v1", "asu-value-v1", "kuzey"),
+        ("asu-value-v1", broken, "fixed-d"),
+    ]
     fields = [
-        # strongest opposition, essentially free
+        # strong heuristic opposition, essentially free at 0.07 ms/decision
         ("kuzey", "kuzey", "kuzey"),
         ("kuzey", "fixed-d", "fixed-b"),
         ("kuzey", champ, "fixed-d"),
         ("kuzey-plus", "fixed-c", "fixed-e"),
-        # ASU: a different strong style, and a competitor is cloning it
-        *([("asu-value-v1", "asu-value-v1", "asu-value-v1"),
-           ("asu-value-v1", "kuzey", "fixed-d"),
-           ("asu-value-v1", champ, "fixed-d")] if mode == "asu" else []),
+        ("kuzey", "kuzey-plus", "fixed-d"),
+        ("kuzey", "fixed-e", "fixed-f"),
         # scripted breadth, weighted to the fields we score worst in
         ("fixed-a", "fixed-b", "fixed-c"),
         ("fixed-d", "fixed-e", "fixed-f"),
         ("fixed-b", "fixed-b", "fixed-b"),
         ("fixed-c", "fixed-e", "fixed-d"),
         ("fixed-b", "fixed-d", "fixed-f"),
+        ("fixed-c", "fixed-c", "fixed-e"),
+        ("fixed-a", "fixed-d", "fixed-f"),
+        ("fixed-d", "fixed-d", "fixed-b"),
         # neural opposition: what every match-day opponent actually is
         (champ, "fixed-b", "fixed-d"),
         (champ, nohyb, "fixed-d"),
+        (champ, "kuzey", "fixed-b"),
+        (nohyb, "fixed-c", "fixed-e"),
         # collapsed agents: the most likely competitor submission
         (broken, "fixed-d", "fixed-b"),
         (broken, champ, "fixed-d"),
+        (broken, "kuzey", "fixed-d"),
+        (broken, broken, "fixed-d"),
     ]
+    if mode == "asu":
+        fields = fields + asu_fields
     return [f for f in fields
             if all(not x.startswith("ppo:") or Path(x[4:]).exists() for x in f)]
 
