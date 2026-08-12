@@ -1,0 +1,365 @@
+[
+  {
+    "capped_games": 39,
+    "capped_percent": 19.5,
+    "decision_valve_truncations": 0,
+    "elapsed_seconds": 380.3797212000063,
+    "focus": "kuzey",
+    "games": 200,
+    "kuzey_decisions": 204400,
+    "kuzey_ms_per_decision": 0.48568710763209394,
+    "kuzey_self_clamps": 0,
+    "label": "kuzey-vs-ABC",
+    "mean_rounds": 93.57,
+    "opponents": [
+      "fixed-a",
+      "fixed-b",
+      "fixed-c"
+    ],
+    "policies": {
+      "fixed-a": {
+        "appearances": 200,
+        "cap_wins": 1,
+        "mean_net_worth": 619.39,
+        "outright_wins": 0,
+        "share_of_wins_at_cap": 100.0,
+        "wilson_95": [
+          0.08831687156009814,
+          2.777370439789293
+        ],
+        "win_rate": 0.5,
+        "wins": 1,
+        "wins_by_seat": {
+          "0": [
+            1,
+            150
+          ],
+          "1": [
+            0,
+            50
+          ]
+        }
+      },
+      "fixed-b": {
+        "appearances": 200,
+        "cap_wins": 14,
+        "mean_net_worth": 6169.4375,
+        "outright_wins": 23,
+        "share_of_wins_at_cap": 37.83783783783784,
+        "wilson_95": [
+          13.730192800616042,
+          24.45706276115175
+        ],
+        "win_rate": 18.5,
+        "wins": 37,
+        "wins_by_seat": {
+          "1": [
+            16,
+            100
+          ],
+          "2": [
+            21,
+            100
+          ]
+        }
+      },
+      "fixed-c": {
+        "appearances": 200,
+        "cap_wins": 3,
+        "mean_net_worth": 2768.805,
+        "outright_wins": 7,
+        "share_of_wins_at_cap": 30.0,
+        "wilson_95": [
+          2.738264560076393,
+          8.957814813877599
+        ],
+        "win_rate": 5.0,
+        "wins": 10,
+        "wins_by_seat": {
+          "2": [
+            2,
+            50
+          ],
+          "3": [
+            8,
+            150
+          ]
+        }
+      },
+      "kuzey": {
+        "appearances": 200,
+        "cap_wins": 21,
+        "mean_net_worth": 28376.0,
+        "outright_wins": 131,
+        "share_of_wins_at_cap": 13.81578947368421,
+        "wilson_95": [
+          69.62665902079583,
+          81.3933840075863
+        ],
+        "win_rate": 76.0,
+        "wins": 152,
+        "wins_by_seat": {
+          "0": [
+            37,
+            50
+          ],
+          "1": [
+            35,
+            50
+          ],
+          "2": [
+            41,
+            50
+          ],
+          "3": [
+            39,
+            50
+          ]
+        }
+      }
+    },
+    "scripted_fallbacks": 1248
+  },
+  {
+    "capped_games": 13,
+    "capped_percent": 6.5,
+    "decision_valve_truncations": 0,
+    "elapsed_seconds": 199.116929300013,
+    "focus": "kuzey",
+    "games": 200,
+    "kuzey_decisions": 130479,
+    "kuzey_ms_per_decision": 0.4072131047908093,
+    "kuzey_self_clamps": 0,
+    "label": "kuzey-vs-DEF",
+    "mean_rounds": 58.835,
+    "opponents": [
+      "fixed-d",
+      "fixed-e",
+      "fixed-f"
+    ],
+    "policies": {
+      "fixed-d": {
+        "appearances": 200,
+        "cap_wins": 0,
+        "mean_net_worth": 4376.2975,
+        "outright_wins": 27,
+        "share_of_wins_at_cap": 0.0,
+        "wilson_95": [
+          9.446570454787906,
+          18.92913837075255
+        ],
+        "win_rate": 13.5,
+        "wins": 27,
+        "wins_by_seat": {
+          "0": [
+            23,
+            150
+          ],
+          "1": [
+            4,
+            50
+          ]
+        }
+      },
+      "fixed-e": {
+        "appearances": 200,
+        "cap_wins": 2,
+        "mean_net_worth": 484.1075,
+        "outright_wins": 0,
+        "share_of_wins_at_cap": 100.0,
+        "wilson_95": [
+          0.27466581335444384,
+          3.5721761716176803
+        ],
+        "win_rate": 1.0,
+        "wins": 2,
+        "wins_by_seat": {
+          "1": [
+            1,
+            100
+          ],
+          "2": [
+            1,
+            100
+          ]
+        }
+      },
+      "fixed-f": {
+        "appearances": 200,
+        "cap_wins": 0,
+        "mean_net_worth": 285.81,
+        "outright_wins": 0,
+        "share_of_wins_at_cap": null,
+        "wilson_95": [
+          1.734723475976807e-16,
+          1.8845326377266574
+        ],
+        "win_rate": 0.0,
+        "wins": 0,
+        "wins_by_seat": {
+          "2": [
+            0,
+            50
+          ],
+          "3": [
+            0,
+            150
+          ]
+        }
+      },
+      "kuzey": {
+        "appearances": 200,
+        "cap_wins": 11,
+        "mean_net_worth": 31515.0975,
+        "outright_wins": 160,
+        "share_of_wins_at_cap": 6.432748538011696,
+        "wilson_95": [
+          79.95133246921847,
+          89.71064935799559
+        ],
+        "win_rate": 85.5,
+        "wins": 171,
+        "wins_by_seat": {
+          "0": [
+            46,
+            50
+          ],
+          "1": [
+            41,
+            50
+          ],
+          "2": [
+            43,
+            50
+          ],
+          "3": [
+            41,
+            50
+          ]
+        }
+      }
+    },
+    "scripted_fallbacks": 1703
+  },
+  {
+    "capped_games": 2,
+    "capped_percent": 1.0,
+    "decision_valve_truncations": 0,
+    "elapsed_seconds": 522.063285399985,
+    "focus": "kuzey",
+    "games": 200,
+    "kuzey_decisions": 198348,
+    "kuzey_ms_per_decision": 0.26719519228830135,
+    "kuzey_self_clamps": 0,
+    "label": "kuzey-vs-CHAMPION",
+    "mean_rounds": 45.225,
+    "opponents": [
+      "ppo:C:\\Users\\MstfHP\\Desktop\\Yaz\u0131l\u0131m kodlar\u0131\\MONOPOLY PROJECT\\DeepRL_Monopoly\\artifacts\\CHAMPION.pt",
+      "fixed-a",
+      "fixed-d"
+    ],
+    "policies": {
+      "fixed-a": {
+        "appearances": 200,
+        "cap_wins": 0,
+        "mean_net_worth": 46.505,
+        "outright_wins": 0,
+        "share_of_wins_at_cap": null,
+        "wilson_95": [
+          1.734723475976807e-16,
+          1.8845326377266574
+        ],
+        "win_rate": 0.0,
+        "wins": 0,
+        "wins_by_seat": {
+          "1": [
+            0,
+            100
+          ],
+          "2": [
+            0,
+            100
+          ]
+        }
+      },
+      "fixed-d": {
+        "appearances": 200,
+        "cap_wins": 0,
+        "mean_net_worth": 3716.9825,
+        "outright_wins": 27,
+        "share_of_wins_at_cap": 0.0,
+        "wilson_95": [
+          9.446570454787906,
+          18.92913837075255
+        ],
+        "win_rate": 13.5,
+        "wins": 27,
+        "wins_by_seat": {
+          "2": [
+            11,
+            50
+          ],
+          "3": [
+            16,
+            150
+          ]
+        }
+      },
+      "kuzey": {
+        "appearances": 200,
+        "cap_wins": 2,
+        "mean_net_worth": 25355.9325,
+        "outright_wins": 155,
+        "share_of_wins_at_cap": 1.2738853503184713,
+        "wilson_95": [
+          72.29769265100339,
+          83.62812374549242
+        ],
+        "win_rate": 78.5,
+        "wins": 157,
+        "wins_by_seat": {
+          "0": [
+            42,
+            50
+          ],
+          "1": [
+            41,
+            50
+          ],
+          "2": [
+            38,
+            50
+          ],
+          "3": [
+            36,
+            50
+          ]
+        }
+      },
+      "ppo:C:\\Users\\MstfHP\\Desktop\\Yaz\u0131l\u0131m kodlar\u0131\\MONOPOLY PROJECT\\DeepRL_Monopoly\\artifacts\\CHAMPION.pt": {
+        "appearances": 200,
+        "cap_wins": 0,
+        "mean_net_worth": 3232.85,
+        "outright_wins": 16,
+        "share_of_wins_at_cap": 0.0,
+        "wilson_95": [
+          4.984058588975997,
+          12.598948826714395
+        ],
+        "win_rate": 8.0,
+        "wins": 16,
+        "wins_by_seat": {
+          "0": [
+            11,
+            150
+          ],
+          "1": [
+            5,
+            50
+          ]
+        }
+      }
+    },
+    "scripted_fallbacks": 1307
+  }
+]
