@@ -1,159 +1,113 @@
-# Handoff — state as of 2026-08-11 11:30
+# Handoff — state as of 2026-08-12 09:30
 
 Read this before `CLAUDE.md`. Where they disagree, this file is newer.
 
-## Rules we work under
+## Rules
 
 1. The submission must be a **learned model**.
-2. **Imitating ASU is forbidden** — no distillation, no behaviour cloning, no ASU
-   decisions as supervised targets. This also rules out `monopoly_bench`'s
-   MonopolyZero bootstrap, which trains its policy head on ASU actions.
-3. ASU **is** allowed as a training opponent and as a benchmark.
-4. At most **5 hardcoded rules**. We currently use **3**, listed below.
+2. **Imitating ASU is forbidden** — no distillation, no ASU decisions as targets.
+   ASU is allowed as a training opponent and as a benchmark.
+3. At most **5 hardcoded rules**. We use **3**.
 
-## The agent
+## What we have
 
-**`artifacts/CHAMPION.pt` is committed to this repo** (normally `artifacts/` is
-gitignored; this one file is force-added so both machines have it).
-
-PPO, hybrid, `restrict_liquidation=True`, `entropy_coef=0.005`, 4000 games
-trained from scratch against a league of scripted and neural opponents.
-
-Measured, seat-balanced, 80 games per cell (`artifacts/diag/roundrobin2/summary.json`):
-
-| field | champion |
+| artifact | what it is |
 |---|---|
-| trained trio (Fixed-A/B/C) | 57.5% |
-| unseen trio (Fixed-D/E/F) | 68.8% |
-| builders x3 | 97.5% |
-| dealmakers x3 | 35.5% (measured over 2500 games; the 31.2% here came from an 80-game cell) |
-| strong mix | 67.5% |
-| blocker mix | 57.5% |
-| vs a rival neural agent | 35.0% |
-| vs another rival neural agent | 28.7% |
-| **worst case** | **28.7%** |
+| `artifacts/CHAMPION.pt` | the current submission — 256-wide, 4000 games, committed to git |
+| `submission_agent.py` | the entry point, ASU-free, fail-closed, 112 tests passing |
+| `SUBMISSION.md` | checkpoint identity and measured results |
+| `external/kuzey/` | a teammate's hand-written heuristic — **stronger than anything we trained** |
 
-In a mixed field it beats the strongest scripted agent 52% to 26%. Parity in a
-four-player game is 25%.
+`CHAMPION.pt`, seat-balanced at 2,500 games per field:
 
-## The three hardcoded rules
+| opponents | win rate |
+|---|---|
+| Fixed-A/B/C | 55.4% |
+| Fixed-D/E/F | 61.0% |
+| mixed scripted | 57.4% |
+| Deal-Makers ×3 | 35.5% |
+| vs a rival neural agent | 29.8% |
+| **3× ASU** | **~17%** |
 
-1. `fixed_buy_decision` — buy if it completes a monopoly, else if $100 would remain
-2. `fixed_accept_trade_decision` — accept if it completes a monopoly, else if net worth change >= 0
-3. `action_filters.restrict_actions` — never voluntarily mortgage or sell; debt-forced liquidation is never blocked
+Parity in a four-player game is 25%.
 
-Rule 3 is the one that matters. Without it the same network scores **0%** and
-liquidates 251 times per game, because masked actions never received gradient and
-their logits are still at initialisation. **A checkpoint trained with the
-restriction is wrong to run without it**, which is why the flag is stored inside
-the checkpoint and why the evaluator now honours it.
+## The open question, and it is a big one
+
+**Kuzey's heuristic is claimed to score 0.63 against ASU.** We measured it at
+**77.5% against Fixed-A/B/C** (our champion: 55%) at **0.07 ms per decision**
+(ASU: 57 ms), zero illegal actions over 40 seat-rotated games. Its bundled
+engine files are byte-identical to ours.
+
+If the 0.63 holds under a seat-balanced evaluation, then a hand-written
+heuristic beats ASU while our best trained agent gets 17% — and that changes
+what we should submit, or at least what we should be training against.
+
+**Nobody has verified it independently yet. That is Machine 2's job.**
+
+## What Machine 1 is doing
+
+Three training runs, all 512 or 1024 wide, from scratch, on a league that
+contains Kuzey's heuristic (~31% of fields), ASU, scripted agents, our own past
+agents, and deliberately collapsed agents:
+
+| run | games | win rate on its league |
+|---|---|---|
+| fast (512, no ASU) | 18,000+ | 28.0 → 32.5 → 35.7 |
+| asu (512, 19% ASU) | 2,500+ | 22.4 → 23.8 → 30.6 |
+| asu (1024) | just started | — |
+
+**Both are still climbing.** Every 256-wide agent we ever trained went flat by
+~1,000 games; these are 15× past that and improving. The only change is network
+width, which is why the capacity hypothesis is currently the live one.
 
 ## Findings that are settled — do not re-derive
 
 - **The 0-2.5% collapse was the action space, not tuning.** The paper's own
-  hyperparameters reproduce it exactly (2.0% final). Masking voluntary
-  liquidation, changing nothing else, gives 76%.
-- **Random play wins 0/200 against Fixed-A/B/C. Random play that refuses to
-  liquidate wins 18.5%.** That one measurement explains the whole project.
-- **Seat 0 is not disadvantaged** — Fixed-D there wins 61%.
-- **Non-transitivity is large and real.** Our previous champion scored 36.5% and
-  19.0% in two four-ways differing only in the fourth player.
-- **Training on all six scripted bots at once destroyed an agent** (12% vs
-  Fixed-A/B/C). A rotating league works; a naive mix does not.
-- **ASU-only training produced the worst floor of 11 candidates (16.2%).**
-- **ASU opponents cost ~100x** — 0.56 s/game scripted, ~55 s/game with ASU seats.
+  hyperparameters reproduce it exactly. Masking voluntary liquidation gives 76%.
+- **Random play wins 0/200 against Fixed-A/B/C; random play that refuses to
+  liquidate wins 18.5%.** That single measurement explains the project.
+- **The network is worth +35 points** over random choice within the same rules.
+- **Non-transitivity is large**: our previous champion scored 36.5% and 19.0% in
+  two four-ways differing only in the fourth player.
+- **ASU-only training produced the worst floor of 11 candidates.**
+- **The paper's absolute reward lost** on all 3 paired seeds (46.1 vs 34.1/35.9).
+- **Deal-Makers are a stalemate field, not a weakness**: 73% of those games hit
+  the 200-round cap, only 0.92 of 4 players go bankrupt, and we take 35.5% of a
+  near-coin-flip.
+- **Search at inference is not permitted** — do not build it.
 
-## Machine 1 is currently running
+## Machine 2's task
 
-Wave 2 training (10 runs), an ASU continuation run, two ASU evaluations, and a
-10,000-game log export. **It is fully saturated.** Machine 2 has the free compute.
+**Verify Kuzey's heuristic. Nothing else until that is answered.**
 
-**Do not edit** `monopoly_game_engine/train.py` or `agent_ppo.py` — Machine 1 is
-training through them. Add new modules instead.
+It needs no checkpoints from Machine 1 — the heuristic and ASU are both in this
+repo, so it is fully self-contained.
 
-## Machine 2's tasks, in priority order
+1. **Kuzey vs 3× ASU**, seat-balanced, 200 games (50 seeds × 4 seats). This is
+   the 0.63 claim. Expect ~1 hour; ASU costs ~55 s/game.
+2. **Kuzey vs Fixed-A/B/C and vs Fixed-D/E/F**, 200 games each. Cheap. Confirms
+   our 77.5% spot-check at proper sample size.
+3. **Kuzey vs CHAMPION.pt** at the same table — `--focus` and `--opponents` both
+   accept `ppo:/path`, so put both in one four-way with two scripted agents.
+4. Write `KUZEY_EVAL.md`: the numbers with Wilson intervals, how many games hit
+   the 200-round cap, and a plain recommendation on whether this heuristic
+   should be the submission instead of a trained agent.
 
-### 1. Submission packaging (must-have, ~1-2 h)
+Use `monopoly_game_engine.train.build_opponents`, which now accepts `kuzey` and
+`kuzey-plus` as opponent ids alongside `fixed-a`..`fixed-f`, `asu-value-v1`, and
+`ppo:/path/to.pt`.
 
-- **`submission_agent.py`** at repo root: `SubmissionAgent(player_id, checkpoint)`
-  with `choose_action(env) -> int`. CPU, `eval()` + `inference_mode()`, hybrid
-  interception, masked argmax, fail-closed legality assert. **It must honour
-  `restrict_liquidation` from the checkpoint's `training_config`** — running the
-  champion without it takes it from 83% to 0%. It must **not** import anything
-  from `ASU_FROZEN_TEACHER`; reimplement the inference path locally rather than
-  reusing `_NeuralAdapter`.
-- **`tests/test_submission_agent.py`**: import `submission_agent` in a fresh
-  interpreter and assert no `ASU_FROZEN_TEACHER` module lands in `sys.modules`;
-  plus a seeded full game with zero illegal actions and a p95 latency report.
-- **`SUBMISSION.md`**: checkpoint SHA-256, the table above, opponent identity,
-  seed sets, and the round-cap/truncation counts.
+**Do not edit** `monopoly_game_engine/train.py`, `agent_ppo.py`, or
+`parallel_ppo.py` — Machine 1 is training through them.
 
-### 2. ANSWERED on 2026-08-11 — do not redo this
+## Environment notes (Windows)
 
-The "~31% against Deal-Makers" weakness was measured on 80-game cells. At 2,500
-games it is **35.5%**, and parity in a four-player game is 25%, so the champion
-is above its share even there. More importantly, the mechanism is not weakness:
-
-| | vs three Deal-Makers | vs Fixed-A/B/C |
-|---|---|---|
-| games hitting the 200-round cap | **73%** | ~15% |
-| mean rounds | **172** | 100 |
-| players bankrupt at game end | **0.92** of 4 | 2.75 of 4 |
-| largest portfolio anyone holds | 14.6 deeds | 25.7 deeds |
-
-Three aggressive traders keep the board fragmented — nobody assembles a
-dominant position, so rents stay low, nobody goes bankrupt, and the game runs to
-the cap where the winner is decided on net worth. It is close to a coin flip
-among four survivors, and we take 35.5% of it. The league could not "fix" this
-because there is nothing to fix; it is a property of that opponent field.
-
-The open follow-up, if anyone wants it: in cap-decided games the objective is
-maximum net worth rather than elimination. Whether the agent should play
-differently once a game is clearly heading for the cap is untested.
-
-Game records for this matchup are in `artifacts/game_logs/full/dealmakers/`
-(2,500 games) and `artifacts/game_logs/full/blockers/` (2,500).
-
-### 3. Parallel trajectory collection — NOW THE SECOND PRIORITY (~1-2 h)
-
-PPO here plays one game at a time in one process, which is why ASU experiments
-are prohibitive: 275 games in 10 hours. Workers playing games with the current
-weights, returning trajectories to one learner that updates and broadcasts, is
-standard PPO practice (the original paper collects from parallel actors) and
-would take 2,000 ASU games from ~30 hours to ~3.
-
-Write it as a **new module**, not by editing `train.py`. Reuse
-`monopoly_game_engine.train.build_opponents` for opponent construction — it
-already accepts `fixed-a`..`fixed-f`, `asu-value-v1`, and `ppo:/path/to.pt`.
-
-## Useful commands
-
-```bash
-venv/bin/pip install pytest                     # not installed by default
-
-# seat-balanced evaluation; --focus and --opponents both accept ppo:/path
-python -m ASU_FROZEN_TEACHER.evaluate \
-  --focus ppo:$PWD/artifacts/CHAMPION.pt \
-  --opponents fixed-b fixed-b fixed-b \
-  --seeds $(seq 0 49) --output artifacts/diag/champ_vs_dealmakers.json
-
-# full game records, parallel and compressed
-python tools/export_game_logs.py --games 200 --seed-base 1 --rotate-seats \
-  --workers 8 --compress \
-  --players ppo:artifacts/CHAMPION.pt fixed-b fixed-b fixed-b \
-  --out-dir artifacts/game_logs/dealmakers
+```
+venv\Scripts\python              not venv/bin/python
+(0..49)                          not $(seq 0 49)
+run commands on separate lines   && is unreliable in PowerShell
 ```
 
-Baseline test suite: **119 passed, 9 failed**. All 9 failures are pre-existing and
-caused by the missing gitignored `artifacts/ppo_plus/ppo_hybrid_2000_v2.pt`.
-`tests/` alone is 97 passed, 0 failed.
-
-## Open questions
-
-- Does wave 2 beat the champion? Machine 1 answers this around midday.
-- Can an ASU specialist actually be trained? Two evaluations are running; if yes,
-  task 3 makes it affordable and it becomes a league opponent, on the theory that
-  rival teams training against ASU will produce similar agents.
-- Search at inference (`monopoly_bench/search.py`'s Max-N PUCT over our own
-  policy, with a value head trained on our own self-play winners — no ASU) is the
-  largest untried gain and the thing rival teams are least likely to attempt.
+Baseline: `tests/` is 112 passed, 0 failed. The 9 failures in
+`monopoly_bench/tests/` are pre-existing and caused by a missing gitignored
+checkpoint.

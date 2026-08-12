@@ -1,0 +1,36 @@
+{
+  "upstream_repo": "reference/DeepRL_Monopoly_feature",
+  "upstream_branch": "feature/ppo-plus-monopoly",
+  "upstream_commit": "7b4081b3d68a9771c1367caefd95fc4dfafad084",
+  "upstream_subdir": "monopoly_game_engine",
+  "vendored_at": "2026-08-10T21:40:45Z",
+  "hash_algorithm": "sha256",
+  "ruleset": {
+    "RULESET_VERSION": "ppo-plus-v2",
+    "STATE_DIM": 300,
+    "ACTION_SPACE_SIZE": 2958,
+    "NUM_PLAYERS": 4
+  },
+  "files": {
+    "__init__.py": "1c2e4d04b001b2054a15b9dc2b40c5e77fa52257711300eda6e3cca2609d4d7e",
+    "actions.py": "63789f2f023ab99451b614885698a3c26ebcef772ae2fe81eb4ae34292c7b6e3",
+    "agent_ddqn.py": "b2fd3e7a5422ec3ec03a1a2a2315aff99b9adafc2db8f67b19601af4f392ae4b",
+    "agent_ppo.py": "df203c3163711727e5f73c4d5e45d1c5a2077c20c9a8f85d60774a626c6bfb6d",
+    "agents_fixed.py": "c4e86034813013f3746fb1742bd51f93ecd62e3e717b91c674f06d0e14c69092",
+    "constants.py": "c60ce7ab31b7fe5c89457320097539ab36d62e8f56be2c5335a06c898ad4925f",
+    "env.py": "04f7028f1566117933d28b64a8af36340e6c1af93d609be0209dc244e360214f",
+    "networks.py": "ef4335f2c8429f6eaa296890ff3c02170278da877f566a0f0fa56e7e7f13fb70",
+    "state.py": "e113335495396f7b5f376060015f8ad53437aa95caa6ef506884e9a9922974b5",
+    "train.py": "ca09d830f0b38dc3101fbf6b91568725f5e66f0344b7c7f5e729e0c4f1cece3c"
+  },
+  "engine_hashes": {
+    "monopoly_game_engine/actions.py": "63789f2f023ab99451b614885698a3c26ebcef772ae2fe81eb4ae34292c7b6e3",
+    "monopoly_game_engine/constants.py": "c60ce7ab31b7fe5c89457320097539ab36d62e8f56be2c5335a06c898ad4925f",
+    "monopoly_game_engine/env.py": "04f7028f1566117933d28b64a8af36340e6c1af93d609be0209dc244e360214f",
+    "monopoly_game_engine/state.py": "e113335495396f7b5f376060015f8ad53437aa95caa6ef506884e9a9922974b5",
+    "monopoly_game_engine/networks.py": "ef4335f2c8429f6eaa296890ff3c02170278da877f566a0f0fa56e7e7f13fb70",
+    "monopoly_game_engine/agents_fixed.py": "c4e86034813013f3746fb1742bd51f93ecd62e3e717b91c674f06d0e14c69092"
+  },
+  "engine_hashes_note": "Keys and file selection replicate monopoly_bench/engine.py:202-208 engine_hashes() so our fingerprints compare directly against the organizer's.",
+  "patches_applied": []
+}
