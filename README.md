@@ -79,7 +79,8 @@ is the raw game-by-game output.
 ## Repository map
 
 ```
-submission_agent.py          entry point for the learned fallback
+underdog_agent.py            THE SUBMISSION -- Underdog(seat).choose_action(env)
+submission_agent.py          learned fallback only, clearly labelled as such
 artifacts/
   LAST_RESORT.pt             the learned fallback (512-wide, 47.5k games)
   ops/evals/                 every tournament script + its raw results
@@ -91,11 +92,16 @@ tools/
   distill_pipeline.py        unattended end-to-end distillation driver
   search_teacher.py          rollout-search teacher (measured, rejected)
 tests/                       112 tests, incl. the ASU-import guard
+docs/                        ruleset, architecture notes, measured history
 ```
 
-Background documents: [`FINDINGS.md`](FINDINGS.md) (results and failures),
-[`HANDOFF.md`](HANDOFF.md) (operational state), [`CLAUDE.md`](CLAUDE.md) (settled
-decisions), [`PPO_PLUS_RULES.md`](PPO_PLUS_RULES.md) (ruleset).
+**Which file is the submission?** `underdog_agent.py`. `submission_agent.py` is a
+second, fully packaged agent kept only as a fallback in case a hand-written
+algorithm is not acceptable; its first line says so.
+
+Background reading lives in [`docs/`](docs/): `PPO_PLUS_RULES.md` (the ruleset),
+`REPO_STUDY_NOTES.md` (architecture walkthrough), `TRAINING_RESULTS.md` and
+`HANDOFF.md` (measured history and operational state), `COLAB_SETUP.md`.
 
 ---
 

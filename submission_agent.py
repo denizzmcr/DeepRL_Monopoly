@@ -1,4 +1,10 @@
-"""The submitted agent, and nothing else.
+"""NOT THE SUBMISSION -- this is the learned fallback.
+
+The submitted agent is ``underdog_agent.Underdog`` (see README.md). This module
+packages ``artifacts/LAST_RESORT.pt``, the best model we trained ourselves: a
+512-wide PPO policy, 47,500 games. It is kept because it is fully verified and
+independent of the heuristic, so it can be submitted instead if a hand-written
+algorithm turns out not to be acceptable.
 
 This is the only file the match harness needs to import. It loads a trained PPO
 checkpoint and turns it into a policy: ``SubmissionAgent(seat).choose_action(env)``
@@ -69,13 +75,11 @@ from monopoly_game_engine.constants import RULESET_VERSION  # noqa: E402
 from monopoly_game_engine.networks import ActorNetwork  # noqa: E402
 from monopoly_game_engine.state import STATE_DIM  # noqa: E402
 
-# LAST_RESORT is the submission: 512-wide, 47,500 games. Chosen on worst case
-# across seven seat-balanced tournaments (23.8%-32.2%, parity 25%), not on best
-# case. Every alternative we trained scores higher in some field and collapses
-# in another -- the distilled students reach 29.1% against Kuzey-like fields and
-# 12.5% when ASU is present. Field dependence here is larger than any difference
-# between our models, so the agent that is never bad beats the agent that is
-# sometimes best.
+# The best model we trained ourselves: 512-wide, 47,500 games. Chosen from our
+# learned candidates on worst case across seven seat-balanced tournaments
+# (23.8%-32.2%, parity 25%), not on best case -- the distilled networks reach
+# 29.1% in some fields and 12.5% in others. It is the fallback, not the
+# submission; see underdog_agent.py.
 DEFAULT_CHECKPOINT = _ROOT / "artifacts" / "LAST_RESORT.pt"
 CHECKPOINT_FORMAT_VERSION = 3
 
