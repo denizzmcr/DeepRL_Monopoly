@@ -71,7 +71,7 @@ def league(mode="fast"):
     86.5% on its training trio and 19.0% when one opponent changed.
 
     Design rules, each from a measurement:
-      * no single opponent dominates -- Kuzey's heuristic is strong (77.5% vs
+      * no single opponent dominates -- the hand-written heuristic is strong (77.5% vs
         Fixed-A/B/C where our champion gets 55%) and deterministic, so an agent
         seeing it too often learns its habits rather than Monopoly
       * ASU appears in several shapes, not just three-of-a-kind, because the
@@ -87,20 +87,20 @@ def league(mode="fast"):
 
     asu_fields = [
         ("asu-value-v1", "asu-value-v1", "asu-value-v1"),
-        ("asu-value-v1", "kuzey", "fixed-d"),
+        ("asu-value-v1", "heuristic", "fixed-d"),
         ("asu-value-v1", champ, "fixed-d"),
         ("asu-value-v1", "fixed-b", "fixed-d"),
-        ("asu-value-v1", "asu-value-v1", "kuzey"),
+        ("asu-value-v1", "asu-value-v1", "heuristic"),
         ("asu-value-v1", broken, "fixed-d"),
     ]
     fields = [
         # strong heuristic opposition, essentially free at 0.07 ms/decision
-        ("kuzey", "kuzey", "kuzey"),
-        ("kuzey", "fixed-d", "fixed-b"),
-        ("kuzey", champ, "fixed-d"),
-        ("kuzey-plus", "fixed-c", "fixed-e"),
-        ("kuzey", "kuzey-plus", "fixed-d"),
-        ("kuzey", "fixed-e", "fixed-f"),
+        ("heuristic", "heuristic", "heuristic"),
+        ("heuristic", "fixed-d", "fixed-b"),
+        ("heuristic", champ, "fixed-d"),
+        ("heuristic-plus", "fixed-c", "fixed-e"),
+        ("heuristic", "heuristic-plus", "fixed-d"),
+        ("heuristic", "fixed-e", "fixed-f"),
         # scripted breadth, weighted to the fields we score worst in
         ("fixed-a", "fixed-b", "fixed-c"),
         ("fixed-d", "fixed-e", "fixed-f"),
@@ -113,12 +113,12 @@ def league(mode="fast"):
         # neural opposition: what every match-day opponent actually is
         (champ, "fixed-b", "fixed-d"),
         (champ, nohyb, "fixed-d"),
-        (champ, "kuzey", "fixed-b"),
+        (champ, "heuristic", "fixed-b"),
         (nohyb, "fixed-c", "fixed-e"),
         # collapsed agents: the most likely competitor submission
         (broken, "fixed-d", "fixed-b"),
         (broken, champ, "fixed-d"),
-        (broken, "kuzey", "fixed-d"),
+        (broken, "heuristic", "fixed-d"),
         (broken, broken, "fixed-d"),
     ]
     if mode == "asu":

@@ -11,7 +11,7 @@ agents it was selected over, and the measurements that decided between them.
 
 ## The submission
 
-**`UNDERDOG`** — a hand-written heuristic, in `external/kuzey/`.
+**`UNDERDOG`** — a hand-written heuristic, in `underdog/`.
 
 ```python
 from underdog_agent import Underdog
@@ -29,7 +29,7 @@ an illegal action raises rather than silently substituting.
 Self-check, which reproduces the number it was measured at and prints PASS/FAIL:
 
 ```bash
-python external/kuzey/Kuzeys_heuristic/play.py
+python underdog/play.py
 ```
 
 ### Compliance
@@ -85,10 +85,10 @@ artifacts/
   LAST_RESORT.pt             the learned fallback (512-wide, 47.5k games)
   ops/evals/                 every tournament script + its raw results
   ops/                       Colab fleet automation (puller, supervisor)
-external/kuzey/              the submitted heuristic
+underdog/                    the submitted agent's package (rules + vendored engine)
 monopoly_game_engine/        game engine, action space, reward, agents
 tools/
-  distill_kuzey.py           heuristic -> network distillation (collect/dagger/train)
+  distill_heuristic.py           heuristic -> network distillation (collect/dagger/train)
   distill_pipeline.py        unattended end-to-end distillation driver
   search_teacher.py          rollout-search teacher (measured, rejected)
 tests/                       112 tests, incl. the ASU-import guard
@@ -100,13 +100,13 @@ second, fully packaged agent kept only as a fallback in case a hand-written
 algorithm is not acceptable; its first line says so.
 
 > **Import one agent per process.** The heuristic package binds its own vendored
-> engine copy as `monopoly_game_engine` (`external/kuzey/.../heuristic/_bind.py`),
+> engine copy as `monopoly_game_engine` (`underdog/.../heuristic/_bind.py`),
 > which shadows this repository's engine. Each agent works correctly on its own —
 > a match only ever loads one — but importing both into a single interpreter makes
 > whichever loads second fail. Verified from a clean clone.
 
 Background reading lives in [`docs/`](docs/): `PPO_PLUS_RULES.md` (the ruleset),
-`REPO_STUDY_NOTES.md` (architecture walkthrough), `TRAINING_RESULTS.md` and
+`REPO_STUDY_NOTES.md` (architecture walkthrough), `CLAUDE.md` (settled decisions), `TRAINING_RESULTS.md` and
 `HANDOFF.md` (measured history and operational state), `COLAB_SETUP.md`.
 
 ---

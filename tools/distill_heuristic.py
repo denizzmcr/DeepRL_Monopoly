@@ -1,12 +1,12 @@
-"""Distil Kuzey's heuristic into a network: collect labelled decisions, then fit.
+"""Distil the hand-written heuristic into a network: collect labelled decisions, then fit.
 
 Why this policy and not ASU: ASU is the instructor's and imitating it is
-forbidden. Kuzey's heuristic is the team's own work, and the instructor approved
+forbidden. the hand-written heuristic is the team's own work, and the instructor approved
 distilling it. It is also simply stronger -- in a seat-balanced 560-game
 tournament it took 53.1% against a 25% parity line, where ASU took 34.1% and our
 best trained agent 32.2%.
 
-The economics are what make this viable where ASU distillation was not. Kuzey
+The economics are what make this viable where ASU distillation was not. the heuristic
 decides in ~0.07 ms against ASU's 57 ms, so labels cost essentially the price of
 simulating the game. That also makes a DAgger round cheap, which matters: plain
 behaviour cloning fails on compounding distribution shift, because the student's
@@ -14,7 +14,7 @@ own mistakes lead to states the teacher never demonstrated.
 
 Two subcommands:
 
-  collect  play games with Kuzey in one or more seats and record every decision
+  collect  play games with the heuristic in one or more seats and record every decision
            it made -- state, the legal set, and its choice.
   train    masked cross-entropy on those decisions, saved as a format-3 PPO
            checkpoint so every existing evaluator loads it unchanged.
@@ -24,8 +24,8 @@ information and would dominate the loss with free accuracy.
 
 The student is saved with ``hybrid=False`` on purpose. Under ``hybrid=True`` the
 evaluator intercepts BUY_PROPERTY and ACCEPT_TRADE with fixed rules and strips
-them from the allowed set, which would throw away Kuzey's judgment on exactly
-those decisions. Kuzey is better at them than the fixed rules are.
+them from the allowed set, which would throw away the heuristic's judgment on exactly
+those decisions. the heuristic is better at them than the fixed rules are.
 """
 from __future__ import annotations
 
@@ -60,19 +60,19 @@ NUM_PLAYERS = 4
 # then scored 14-21% in ASU fields against 39-45% everywhere else. That was a
 # hole in the data, not a weakness of the method.
 #
-# Kuzey remains the only labeller. ASU only ever occupies an opponent seat, so
+# the heuristic remains the only labeller. ASU only ever occupies an opponent seat, so
 # no ASU decision is ever a training target.
 FIELDS = [
-    ("kuzey", "kuzey", "kuzey"),
-    ("kuzey", "kuzey", "fixed-d"),
-    ("kuzey", "fixed-a", "fixed-b"),
-    ("kuzey", "fixed-e", "fixed-f"),
+    ("heuristic", "heuristic", "heuristic"),
+    ("heuristic", "heuristic", "fixed-d"),
+    ("heuristic", "fixed-a", "fixed-b"),
+    ("heuristic", "fixed-e", "fixed-f"),
     ("fixed-a", "fixed-b", "fixed-c"),
     ("fixed-d", "fixed-e", "fixed-f"),
     ("fixed-b", "fixed-d", "fixed-f"),
     ("fixed-c", "fixed-c", "fixed-e"),
-    ("kuzey-plus", "fixed-c", "fixed-d"),
-    ("kuzey-plus", "kuzey", "fixed-b"),
+    ("heuristic-plus", "fixed-c", "fixed-d"),
+    ("heuristic-plus", "heuristic", "fixed-b"),
 ]
 NEURAL_SLOTS = ["CHAMPION.pt", "LAST_RESORT.pt"]
 
@@ -81,9 +81,9 @@ NEURAL_SLOTS = ["CHAMPION.pt", "LAST_RESORT.pt"]
 # mixed in by ratio.
 ASU_FIELDS = [
     ("asu-value-v1", "fixed-d", "fixed-b"),
-    ("asu-value-v1", "kuzey", "fixed-e"),
+    ("asu-value-v1", "heuristic", "fixed-e"),
     ("asu-value-v1", "fixed-c", "fixed-f"),
-    ("asu-value-v1", "kuzey", "kuzey"),
+    ("asu-value-v1", "heuristic", "heuristic"),
     ("asu-value-v1", "asu-value-v1", "fixed-c"),
 ]
 # One ASU seat per field, with a single two-seat field for coverage. A
@@ -102,13 +102,13 @@ def _fields_with_neural() -> list[tuple[str, ...]]:
     for rel in NEURAL_SLOTS:
         path = REPO / "artifacts" / rel
         if path.exists():
-            fields.append(("kuzey", f"ppo:{path}", "fixed-d"))
+            fields.append(("heuristic", f"ppo:{path}", "fixed-d"))
             fields.append((f"ppo:{path}", "fixed-b", "fixed-e"))
     return fields
 
 
 def _play(args):
-    """One game. Returns Kuzey's decisions as (state, legal, action) triples."""
+    """One game. Returns the heuristic's decisions as (state, legal, action) triples."""
     seed, field = args
     from monopoly_game_engine.train import build_opponents
 
@@ -116,17 +116,17 @@ def _play(args):
     env = MonopolyEnv(agent_ids=[0], max_rounds=200)
     env.reset()
 
-    # Kuzey occupies the seats named 'kuzey'; rotating by seed keeps its seat
+    # the heuristic occupies the seats named 'heuristic'; rotating by seed keeps its seat
     # from correlating with the observation, whose deed slots are indexed by
     # physical player id.
     rot = seed % NUM_PLAYERS
     ids = list(field)
-    ids.insert(rot, "kuzey")
+    ids.insert(rot, "heuristic")
     agents = build_opponents(ids, list(range(NUM_PLAYERS)))
-    # Exactly "kuzey", never "kuzey-plus": ChampionPlus is a different policy,
+    # Exactly "heuristic", never "heuristic-plus": ChampionPlus is a different policy,
     # and mixing two teachers gives the student contradictory targets for
-    # identical states. kuzey-plus stays, but only as an opponent.
-    teacher_seats = {i for i, name in enumerate(ids) if name == "kuzey"}
+    # identical states. underdog-plus stays, but only as an opponent.
+    teacher_seats = {i for i, name in enumerate(ids) if name == "heuristic"}
 
     states, actions, legals = [], [], []
     teacher_illegal = [0]
@@ -162,18 +162,18 @@ def _play(args):
 
 
 def _play_dagger(args):
-    """One DAgger game: the student drives, Kuzey labels what it would have done.
+    """One DAgger game: the student drives, the heuristic labels what it would have done.
 
     Behaviour cloning is trained on the teacher's own state distribution, but at
     play time the student visits states its mistakes created, which the teacher
     never demonstrated -- errors compound. DAgger closes that loop by labelling
     the *student's* states with the teacher's answer.
 
-    Only the student's seat is labelled, and the label is Kuzey's choice in that
+    Only the student's seat is labelled, and the label is the heuristic's choice in that
     exact position, so the data stays teacher-generated.
     """
     seed, field, student = args
-    from monopoly_game_engine.train import KuzeyHeuristicOpponent, build_opponents
+    from monopoly_game_engine.train import the heuristicHeuristicOpponent, build_opponents
 
     random.seed(seed)
     env = MonopolyEnv(agent_ids=[0], max_rounds=200)
@@ -184,7 +184,7 @@ def _play_dagger(args):
     ids.insert(rot, f"ppo:{student}")
     agents = build_opponents(ids, list(range(NUM_PLAYERS)))
     seat = rot
-    oracle = KuzeyHeuristicOpponent(seat, "champion")
+    oracle = the heuristicHeuristicOpponent(seat, "champion")
 
     states, actions, legals = [], [], []
     agree = seen = 0
@@ -228,7 +228,7 @@ def dagger(student: Path, n_games: int, seed_base: int, workers: int, out: Path,
     jobs = [(seed_base + 500000 + i, ASU_FIELDS[i % len(ASU_FIELDS)], str(student))
             for i in range(asu_games)] + jobs
     n_games += asu_games
-    print(f"DAgger: {n_games} games driven by {student.name}, labelled by Kuzey",
+    print(f"DAgger: {n_games} games driven by {student.name}, labelled by the heuristic",
           flush=True)
     S, A, L, G = [], [], [], []
     ag = sn = 0
@@ -435,7 +435,7 @@ def train(shards: list[Path], out: Path, hidden: int, epochs: int,
             agent.save(str(out))
             print(f"    saved (best val {100*best:.1f}%)", flush=True)
 
-    print(f"\nbest held-out top-1 agreement with Kuzey: {100*best:.1f}%")
+    print(f"\nbest held-out top-1 agreement with the heuristic: {100*best:.1f}%")
     print(f"checkpoint: {out}")
 
 
@@ -448,7 +448,7 @@ def main():
     c.add_argument("--workers", type=int, default=10)
     c.add_argument("--out", type=Path, required=True)
     c.add_argument("--asu-games", type=int, default=0,
-                   help="games with ASU in opponent seats (Kuzey still labels)")
+                   help="games with ASU in opponent seats (the heuristic still labels)")
     g = sub.add_parser("dagger")
     g.add_argument("--student", type=Path, required=True)
     g.add_argument("--games", type=int, default=3000)

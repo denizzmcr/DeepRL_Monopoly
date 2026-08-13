@@ -23,11 +23,11 @@ import sys
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent
-_HEURISTIC = _ROOT / "external" / "kuzey" / "Kuzeys_heuristic"
+_HEURISTIC = _ROOT / "underdog"
 
 __all__ = ["Underdog", "VARIANT"]
 
-VARIANT = "ChampionPlus"
+VARIANT = "ChampionScore"
 
 
 class Underdog:
@@ -42,10 +42,10 @@ class Underdog:
             raise FileNotFoundError(f"heuristic package not found at {_HEURISTIC}")
         if str(_HEURISTIC) not in sys.path:
             sys.path.insert(0, str(_HEURISTIC))
-        from heuristic import ChampionPlus
+        from heuristic import ChampionScore
 
         self.player_id = int(player_id)
-        self._agent = ChampionPlus()
+        self._agent = ChampionScore()
 
     def choose_action(self, env) -> int:
         """Return one legal action index for ``self.player_id``.

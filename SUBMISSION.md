@@ -45,11 +45,11 @@ other candidate we trained wins some field and collapses in another:
 
 Field dependence in this game is larger than the difference between our models --
 changing two of six policies in a four-player tournament flipped which of ASU and
-Kuzey ranked first. Against three unknown agents, the policy that is never bad
+the heuristic ranked first. Against three unknown agents, the policy that is never bad
 beats the policy that is sometimes best. That is the whole argument for this
 choice, and it is why the higher-ceiling distilled agents were not submitted.
 
-Kuzey's heuristic outscores this checkpoint in most fields (up to 53.1%) and is
+the hand-written heuristic outscores this checkpoint in most fields (up to 53.1%) and is
 **not eligible**: the submission must be a learned model.
 
 `submission_agent.py` sits at the repository root and is the only file the match

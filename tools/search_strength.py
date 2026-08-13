@@ -1,9 +1,9 @@
-"""Is the search-improved teacher actually stronger than Kuzey? Measure first.
+"""Is the search-improved teacher actually stronger than the heuristic? Measure first.
 
-Phase 5 only pays off if this beats plain Kuzey by enough to be worth distilling.
+Phase 5 only pays off if this beats plain the heuristic by enough to be worth distilling.
 Seat-balanced: every seed is played from all four seats, so seat advantage
 cancels. Parity in a four-player game is 25%, and the opposition is three plain
-Kuzeys, so anything above 25% means the search is adding something.
+the heuristics, so anything above 25% means the search is adding something.
 
 Run it before collecting a single label. Distilling a teacher that is not
 actually better would waste the remaining time on a guaranteed dead end.
@@ -32,13 +32,13 @@ CFG: dict = {}
 def _game(args):
     seed, seat = args
     from monopoly_game_engine.train import build_opponents
-    from search_teacher import SearchKuzey
+    from search_teacher import Searchthe heuristic
 
     random.seed(seed)
     env = MonopolyEnv(agent_ids=[0], max_rounds=200)
     env.reset()
-    agents = build_opponents(["kuzey"] * 4, [0, 1, 2, 3])
-    teacher = SearchKuzey(seat, playouts=CFG["playouts"],
+    agents = build_opponents(["heuristic"] * 4, [0, 1, 2, 3])
+    teacher = Searchthe heuristic(seat, playouts=CFG["playouts"],
                           horizon=CFG["horizon"], wide=CFG["wide"])
     agents[seat] = teacher
 
@@ -81,8 +81,8 @@ def main():
     CFG.update(playouts=a.playouts, horizon=a.horizon, wide=a.wide)
 
     jobs = [(1000 + s, seat) for s in range(a.seeds) for seat in range(4)]
-    print(f"SearchKuzey(playouts={a.playouts}, horizon={a.horizon}, "
-          f"wide={a.wide}) vs 3x kuzey | {len(jobs)} games, parity 25%",
+    print(f"Searchthe heuristic(playouts={a.playouts}, horizon={a.horizon}, "
+          f"wide={a.wide}) vs 3x underdog | {len(jobs)} games, parity 25%",
           flush=True)
 
     wins = trunc = searched = free = 0

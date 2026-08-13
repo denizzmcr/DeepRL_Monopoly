@@ -24,11 +24,13 @@ from ._bind import ENGINE_DIR, ROOT, engine_is_ours, unwrap
 from .champion import SpineH100
 from .champion import StChest as Champion
 from .champion import StChestScrap as ChampionPlus
+from .champion import StChestScrapScore as ChampionScore
 from .spine import Spine
 
 __all__ = [
     "Champion",
     "ChampionPlus",
+    "ChampionScore",
     "Spine",
     "SpineH100",
     "ROOT",

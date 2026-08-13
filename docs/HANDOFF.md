@@ -9,16 +9,16 @@ the fast league. It is the most robust policy we have measured: **23.8–32.2%
 across five different four-player fields**, where every alternative swings much
 harder. Parity is 25%.
 
-## Kuzey distillation: done, measured, and it did not win
+## the heuristic distillation: done, measured, and it did not win
 
-The instructor approved distilling Kuzey (it is the team's own heuristic; the ban
-is on ASU only). The whole pipeline is `tools/distill_kuzey.py` — `collect`,
+The instructor approved distilling the heuristic (it is the team's own heuristic; the ban
+is on ASU only). The whole pipeline is `tools/distill_heuristic.py` — `collect`,
 `dagger`, `train`. It worked exactly as designed and still lost:
 
 | | measured |
 |---|---|
 | collection | 22,000 games / 33M labels in ~5 min across 4 hosts |
-| agreement with Kuzey (held out) | **92%** |
+| agreement with the heuristic (held out) | **92%** |
 | agreement on the student's OWN states | **73%** |
 | DAgger round 1 | **+8.1 points**, z=2.41 |
 | best student vs `fast` in ASU fields | **14–21% vs 25–27%** |
@@ -27,9 +27,9 @@ That 92% → 73% collapse is the whole story: behaviour cloning is scored on the
 teacher's state distribution but plays in its own. DAgger closes part of it.
 
 **The reason to stop, though, is not the gap — it is what the students became.**
-They play like Kuzey, and Kuzey-like agents are exploitable by ASU. In a field of
+They play like the heuristic, and the heuristic-like agents are exploitable by ASU. In a field of
 four distilled students, ASU scored **55.9%** while every student sat at 14–18%.
-Do not spend more time distilling Kuzey without a plan for that.
+Do not spend more time distilling the heuristic without a plan for that.
 
 ## Field dependence is the dominant effect — bigger than any model difference
 
@@ -37,14 +37,14 @@ The same policies, rescored in different four-player fields:
 
 | policy | field A | field B | field C |
 |---|---|---|---|
-| kuzey | 45.9% | 34.1% | 27.2% |
+| heuristic | 45.9% | 34.1% | 27.2% |
 | asu | 33.8% | 41.6% | **55.9%** |
 | fast | 30.3% | 25.0% | 26.9% |
 | distilled 1024 | — | 18.8% | 16.9% |
 
-Changing two of six policies flips which of ASU and Kuzey is stronger. **No single
+Changing two of six policies flips which of ASU and the heuristic is stronger. **No single
 win-rate number identifies the best agent — select on worst case across fields.**
-This also retracts an earlier claim in this file: Kuzey is *not* simply stronger
+This also retracts an earlier claim in this file: the heuristic is *not* simply stronger
 than ASU; it depends entirely on who else is at the table.
 
 ## PPO fine-tuning from a distilled checkpoint destroys it — and why
@@ -166,7 +166,7 @@ plain CPU runtimes another (but only 2 cores, not worth it).
 | `artifacts/CHAMPION.pt` | the current submission — 256-wide, 4000 games, committed to git |
 | `submission_agent.py` | the entry point, ASU-free, fail-closed, 112 tests passing |
 | `SUBMISSION.md` | checkpoint identity and measured results |
-| `external/kuzey/` | a teammate's hand-written heuristic — **stronger than anything we trained** |
+| `underdog/` | a teammate's hand-written heuristic — **stronger than anything we trained** |
 
 `CHAMPION.pt`, seat-balanced at 2,500 games per field:
 
@@ -183,7 +183,7 @@ Parity in a four-player game is 25%.
 
 ## The open question, and it is a big one
 
-**Kuzey's heuristic is claimed to score 0.63 against ASU.** We measured it at
+**the hand-written heuristic is claimed to score 0.63 against ASU.** We measured it at
 **77.5% against Fixed-A/B/C** (our champion: 55%) at **0.07 ms per decision**
 (ASU: 57 ms), zero illegal actions over 40 seat-rotated games. Its bundled
 engine files are byte-identical to ours.
@@ -197,7 +197,7 @@ what we should submit, or at least what we should be training against.
 ## What Machine 1 is doing
 
 Three training runs, all 512 or 1024 wide, from scratch, on a league that
-contains Kuzey's heuristic (~31% of fields), ASU, scripted agents, our own past
+contains the hand-written heuristic (~31% of fields), ASU, scripted agents, our own past
 agents, and deliberately collapsed agents:
 
 | run | games | win rate on its league |
@@ -228,23 +228,23 @@ width, which is why the capacity hypothesis is currently the live one.
 
 ## Machine 2's task
 
-**Verify Kuzey's heuristic. Nothing else until that is answered.**
+**Verify the hand-written heuristic. Nothing else until that is answered.**
 
 It needs no checkpoints from Machine 1 — the heuristic and ASU are both in this
 repo, so it is fully self-contained.
 
-1. **Kuzey vs 3× ASU**, seat-balanced, 200 games (50 seeds × 4 seats). This is
+1. **the heuristic vs 3× ASU**, seat-balanced, 200 games (50 seeds × 4 seats). This is
    the 0.63 claim. Expect ~1 hour; ASU costs ~55 s/game.
-2. **Kuzey vs Fixed-A/B/C and vs Fixed-D/E/F**, 200 games each. Cheap. Confirms
+2. **the heuristic vs Fixed-A/B/C and vs Fixed-D/E/F**, 200 games each. Cheap. Confirms
    our 77.5% spot-check at proper sample size.
-3. **Kuzey vs CHAMPION.pt** at the same table — `--focus` and `--opponents` both
+3. **the heuristic vs CHAMPION.pt** at the same table — `--focus` and `--opponents` both
    accept `ppo:/path`, so put both in one four-way with two scripted agents.
 4. Write `KUZEY_EVAL.md`: the numbers with Wilson intervals, how many games hit
    the 200-round cap, and a plain recommendation on whether this heuristic
    should be the submission instead of a trained agent.
 
-Use `monopoly_game_engine.train.build_opponents`, which now accepts `kuzey` and
-`kuzey-plus` as opponent ids alongside `fixed-a`..`fixed-f`, `asu-value-v1`, and
+Use `monopoly_game_engine.train.build_opponents`, which now accepts `heuristic` and
+`heuristic-plus` as opponent ids alongside `fixed-a`..`fixed-f`, `asu-value-v1`, and
 `ppo:/path/to.pt`.
 
 **Do not edit** `monopoly_game_engine/train.py`, `agent_ppo.py`, or

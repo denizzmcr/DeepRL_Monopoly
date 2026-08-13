@@ -1,4 +1,4 @@
-"""Run the whole Kuzey distillation on one host, unattended, start to finish.
+"""Run the whole the heuristic distillation on one host, unattended, start to finish.
 
 Every phase used to be launched by hand, which meant the host sat idle between
 them waiting for a human. This runs collect -> train -> DAgger -> retrain as one
@@ -27,7 +27,7 @@ import time
 from pathlib import Path
 
 REPO = Path("/content/DeepRL_Monopoly")
-TOOL = REPO / "tools" / "distill_kuzey.py"
+TOOL = REPO / "tools" / "distill_heuristic.py"
 
 
 def say(msg: str) -> None:

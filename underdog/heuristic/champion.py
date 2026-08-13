@@ -646,8 +646,61 @@ class StAll(_ReachMixin, _ThawMixin, _WarChestMixin, _ScrapBuyMixin, _EndgameMix
     name = "st_all"
 
 
+class _ScoreBuyMixin:
+    """Price an unowned deed at what it SCORES, not only at the rent it earns.
+
+    Measured against the six competition agents (240 instrumented games,
+    `docs/GAUNTLET.md`): of every chance to buy an unowned deed we took half
+    and declined half, and *every* decline was for low value -- none for the
+    cash floor. The median deed was valued at 0.91x list, so `_should_buy`'s
+    final `value >= price` test rejected it.
+
+    That test measures the wrong quantity. `Ctx.deed_value` is rent income over
+    a horizon, but `Property.calculate_net_worth` -- which decides every capped
+    game and underwrites every liquidation -- prices an unmortgaged deed at
+    2.5x list, 5.0x inside a completed group, against cash at 1.0x. Buying at
+    list converts $P of score into $2.5P whatever the rent does, so declining
+    is a guaranteed loss of 1.5x the price in the only currency the engine
+    ranks players by. `_score_value` already states that rule; the shipped
+    agent consulted it only through `_endgame_weight`, which is zero until
+    round 100, by which time the board is bought.
+
+    The reserve floor is deliberately kept: cash is what stops you going
+    bankrupt, and we go bankrupt in 68% of games.
+
+    Paired, identical tables and seeds, against expo/aline/slayer:
+        120 games  20.8% -> 25.0%  (+4.2 pp)
+        240 games  25.4% -> 27.5%  (+2.1 pp)
+    Never measured worse; not individually significant. Two variants on the
+    same idea were measured and rejected: bidding auctions off the score value
+    (-4.2 pp) and thinning the reserve floor as well (+0.0 pp).
+    """
+
+    def _should_buy(self, ctx, square: int) -> bool:
+        env, pid = ctx.env, ctx.pid
+        prop = env.properties.get(square)
+        if prop is None or prop.owner is not None:
+            return False
+        price = _PRICE_OF[square]
+        cash = env.players[pid].cash
+        value = max(ctx.deed_value(square, pid),
+                    self._score_value(ctx, square, pid))
+        critical = value >= 1.5 * price
+        floor = ctx.reserve * (self.BUY_RESERVE_RELIEF if critical else 1.0)
+        if cash - price < floor:
+            return False
+        return value >= price
+
+
+class StChestScrapScore(_ScoreBuyMixin, StChestScrap):
+    """THE SUBMITTED AGENT: ChampionPlus plus score-priced buying."""
+
+    name = "st_chest_scrap_score"
+
+
 VARIANTS = {
     "champion": StChest,
+    "st_chest_scrap_score": StChestScrapScore,
     "st_base": StBase,
     "st_chest_scrap": StChestScrap,
     "st_chest_thaw": StChestThaw,

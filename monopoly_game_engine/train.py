@@ -42,7 +42,15 @@ OPPONENT_IDS = (
     *(f"fixed-{letter}" for letter in "abcdef"),
     "asu-value-v1",
     "asu-rollout-v1",
-    "kuzey",          # teammate's heuristic: strongest and fastest opponent we have
+    # The hand-written heuristic as a *training opponent*. Deliberately not
+    # called "underdog": that name belongs to the submitted agent
+    # (underdog_agent.Underdog), which is the *plus* variant. Naming an opponent
+    # after the submission would suggest the two are the same policy.
+    "heuristic",
+    "heuristic-plus",
+    # Former name, kept so the recorded results in artifacts/ops/evals/ still
+    # resolve against this vocabulary.
+    "kuzey",
     "kuzey-plus",
 )
 DEFAULT_OPPONENT_IDS = ("fixed-a", "fixed-b", "fixed-c")
@@ -131,8 +139,8 @@ class FrozenPolicyOpponent:
         return int(scores.argmax().item())
 
 
-class KuzeyHeuristicOpponent:
-    """Kuzey's hand-written heuristic, played as a league opponent.
+class HeuristicOpponent:
+    """The hand-written heuristic, played as a league opponent.
 
     The strongest opponent available to us and nearly free: 77.5% against
     Fixed-A/B/C where our champion scores 55%, at 0.07 ms per decision against
@@ -150,9 +158,9 @@ class KuzeyHeuristicOpponent:
         import sys as _sys
         from pathlib import Path as _Path
 
-        root = _Path(__file__).resolve().parents[1] / "external" / "kuzey" / "Kuzeys_heuristic"
+        root = _Path(__file__).resolve().parents[1] / "underdog"
         if not root.exists():
-            raise ValueError(f"Kuzey heuristic not found at {root}")
+            raise ValueError(f"heuristic package not found at {root}")
         if str(root) not in _sys.path:
             _sys.path.insert(0, str(root))
         # our engine is already imported by the time this runs, and their binder
@@ -163,9 +171,9 @@ class KuzeyHeuristicOpponent:
         cls = {"champion": _h.Champion, "plus": _h.ChampionPlus,
                "spine": _h.Spine}.get(variant, _h.Champion)
         key = (variant, player_id)
-        if key not in KuzeyHeuristicOpponent._cache:
-            KuzeyHeuristicOpponent._cache[key] = cls()
-        self.agent = KuzeyHeuristicOpponent._cache[key]
+        if key not in HeuristicOpponent._cache:
+            HeuristicOpponent._cache[key] = cls()
+        self.agent = HeuristicOpponent._cache[key]
 
     def choose_action(self, env) -> int:
         return int(self.agent.choose_action(env, self.player_id, 0))
@@ -197,9 +205,9 @@ def build_opponents(ids, player_ids):
                 f"Unknown opponent {identifier!r}; expected one of {OPPONENT_IDS} "
                 "or ppo:/path/to/checkpoint.pt"
             )
-        if identifier.startswith("kuzey"):
+        if identifier.startswith(("heuristic", "kuzey")):
             variant = "plus" if identifier.endswith("-plus") else "champion"
-            agents.append(KuzeyHeuristicOpponent(pid, variant))
+            agents.append(HeuristicOpponent(pid, variant))
             continue
         if identifier.startswith("asu-"):
             from ASU_FROZEN_TEACHER import ASURolloutV1, ASUValueV1

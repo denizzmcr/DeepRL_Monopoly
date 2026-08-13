@@ -1,18 +1,18 @@
-"""A teacher stronger than Kuzey, built by adding search that only runs offline.
+"""A teacher stronger than the heuristic, built by adding search that only runs offline.
 
-Distilling Kuzey caps the student at Kuzey. To pass that ceiling we need a better
+Distilling the heuristic caps the student at the heuristic. To pass that ceiling we need a better
 teacher, and the one lever left is search: the competition forbids search *at
 inference*, but nothing forbids it while generating training labels. The
 submitted artefact stays a plain feed-forward network.
 
 The method is candidate-restricted rollout. Searching all ~20 legal actions is
-unaffordable, but we do not need to: Kuzey's three variants (Champion,
+unaffordable, but we do not need to: the heuristic's three variants (Champion,
 ChampionPlus, Spine) propose between one and three distinct actions, and they
 disagree on 55% of decisions. Those disagreements are exactly the positions
-where Kuzey is unsure, so the candidate set is both small and well chosen.
+where the heuristic is unsure, so the candidate set is both small and well chosen.
 
 * All variants agree -> take it, at no cost beyond three heuristic calls.
-* They disagree -> play each candidate out a few times with Kuzey driving every
+* They disagree -> play each candidate out a few times with the heuristic driving every
   seat, truncated to a short horizon, and keep the best average.
 
 Scoring uses the engine's own ``_compute_reward`` (net worth against the mean of
@@ -38,33 +38,33 @@ NUM_PLAYERS = 4
 VARIANTS = ("champion", "plus", "spine")
 
 
-class SearchKuzey:
-    """Kuzey plus truncated rollout search over the variants' proposals."""
+class Searchthe heuristic:
+    """the heuristic plus truncated rollout search over the variants' proposals."""
 
     def __init__(self, player_id: int, playouts: int = 2, horizon: int = 8,
                  wide: int = 0):
         """``wide``: when the variants agree, still search if the legal set is
         no larger than this. Measured, the variants agree on all but ~3% of a
         seat's own decisions, so search alone changes only ~21 moves per game.
-        Widening trades cost for the chance to actually improve on Kuzey rather
+        Widening trades cost for the chance to actually improve on the heuristic rather
         than merely arbitrating between its own suggestions.
         """
-        from monopoly_game_engine.train import KuzeyHeuristicOpponent
+        from monopoly_game_engine.train import the heuristicHeuristicOpponent
 
         self.player_id = player_id
         self.playouts = playouts
         self.horizon = horizon
         self.wide = wide
-        self._proposers = [KuzeyHeuristicOpponent(player_id, v) for v in VARIANTS]
+        self._proposers = [the heuristicHeuristicOpponent(player_id, v) for v in VARIANTS]
         # One driver per seat, reused across rollouts. Building these per
         # playout would cost more than the playout.
-        self._drivers = [KuzeyHeuristicOpponent(i, "champion")
+        self._drivers = [the heuristicHeuristicOpponent(i, "champion")
                          for i in range(NUM_PLAYERS)]
         self.searches = 0
         self.free = 0
 
     def _rollout(self, env, action: int) -> float:
-        """Apply ``action``, then let Kuzey play everyone for a short horizon."""
+        """Apply ``action``, then let the heuristic play everyone for a short horizon."""
         sim = copy.deepcopy(env)
         allowed = sim.get_allowed_actions(self.player_id)
         if action not in allowed:
