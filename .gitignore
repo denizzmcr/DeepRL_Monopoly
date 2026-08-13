@@ -8,3 +8,5 @@ __pycache__/
 PROJECT_EXPLAINED.txt
 external/
 artifacts/incoming/
+.DS_Store
+game_log.txt

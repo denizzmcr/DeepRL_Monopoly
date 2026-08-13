@@ -11,9 +11,46 @@ exactly, and records the conditions under which every number below was measured.
 ```python
 from submission_agent import SubmissionAgent
 
-agent = SubmissionAgent(player_id=seat)      # defaults to artifacts/CHAMPION.pt
+agent = SubmissionAgent(player_id=seat)      # defaults to artifacts/LAST_RESORT.pt
 action = agent.choose_action(env)            # -> one legal action index
 ```
+
+## 0. What is being submitted, and why this one
+
+**`artifacts/LAST_RESORT.pt`** — 512-wide, `hybrid=True`,
+`restrict_liquidation=True`, 47,500 games of PPO on the fast league.
+
+SHA-256 `d6f276a79dd02a4ea884ae3d63648fa2bd722201e72da534a9bafebc617b0088`
+
+Verified 2026-08-13, 48 seat-balanced games vs Fixed-A/B/C:
+
+| check | result |
+|---|---|
+| win rate | **31.2%** (parity 25%) |
+| illegal actions | **0** over 47,221 decisions |
+| latency mean / p95 / max | **0.10 / 0.19 / 0.68 ms** |
+| `tests/test_submission_agent.py` | 8 passed, including the ASU-import guard |
+
+Latency leaves ~5,000x headroom against the ~1 s per-move budget we designed for.
+
+**Selected on worst case, not best case.** Across seven seat-balanced tournaments
+run on 2026-08-12/13, this checkpoint scored between **23.8% and 32.2%**. Every
+other candidate we trained wins some field and collapses in another:
+
+| candidate | worst field | best field |
+|---|---|---|
+| **LAST_RESORT** | **23.8%** | 32.2% |
+| distilled students (v1/v2/v3) | 12.5% | 29.1% |
+| CHAMPION.pt (previous submission) | 7.8% | 20.3% |
+
+Field dependence in this game is larger than the difference between our models --
+changing two of six policies in a four-player tournament flipped which of ASU and
+Kuzey ranked first. Against three unknown agents, the policy that is never bad
+beats the policy that is sometimes best. That is the whole argument for this
+choice, and it is why the higher-ceiling distilled agents were not submitted.
+
+Kuzey's heuristic outscores this checkpoint in most fields (up to 53.1%) and is
+**not eligible**: the submission must be a learned model.
 
 `submission_agent.py` sits at the repository root and is the only file the match
 harness needs. It runs on CPU under `eval()` + `torch.inference_mode()`, loads

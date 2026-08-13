@@ -69,7 +69,14 @@ from monopoly_game_engine.constants import RULESET_VERSION  # noqa: E402
 from monopoly_game_engine.networks import ActorNetwork  # noqa: E402
 from monopoly_game_engine.state import STATE_DIM  # noqa: E402
 
-DEFAULT_CHECKPOINT = _ROOT / "artifacts" / "CHAMPION.pt"
+# LAST_RESORT is the submission: 512-wide, 47,500 games. Chosen on worst case
+# across seven seat-balanced tournaments (23.8%-32.2%, parity 25%), not on best
+# case. Every alternative we trained scores higher in some field and collapses
+# in another -- the distilled students reach 29.1% against Kuzey-like fields and
+# 12.5% when ASU is present. Field dependence here is larger than any difference
+# between our models, so the agent that is never bad beats the agent that is
+# sometimes best.
+DEFAULT_CHECKPOINT = _ROOT / "artifacts" / "LAST_RESORT.pt"
 CHECKPOINT_FORMAT_VERSION = 3
 
 _BUY = int(ActionType.BUY_PROPERTY)
