@@ -99,6 +99,12 @@ docs/                        ruleset, architecture notes, measured history
 second, fully packaged agent kept only as a fallback in case a hand-written
 algorithm is not acceptable; its first line says so.
 
+> **Import one agent per process.** The heuristic package binds its own vendored
+> engine copy as `monopoly_game_engine` (`external/kuzey/.../heuristic/_bind.py`),
+> which shadows this repository's engine. Each agent works correctly on its own —
+> a match only ever loads one — but importing both into a single interpreter makes
+> whichever loads second fail. Verified from a clean clone.
+
 Background reading lives in [`docs/`](docs/): `PPO_PLUS_RULES.md` (the ruleset),
 `REPO_STUDY_NOTES.md` (architecture walkthrough), `TRAINING_RESULTS.md` and
 `HANDOFF.md` (measured history and operational state), `COLAB_SETUP.md`.
