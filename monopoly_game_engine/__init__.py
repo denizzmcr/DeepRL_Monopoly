@@ -17,15 +17,34 @@ Quick start
 import random
 
 import numpy as np
-import torch
 
 from .env          import MonopolyEnv
-from .agent_ppo    import PPOAgent
-from .agent_ddqn   import DDQNAgent
 from .agents_fixed import FPAgentA, FPAgentB, FPAgentC
-from .train        import DEFAULT_OPPONENT_IDS, OPPONENT_IDS, train, evaluate
 from .state        import build_state_vector
 from .actions      import ACTION_SPACE_SIZE, action_to_description
+
+# The trainers are the only part of this package that needs torch, and a
+# submitted agent never touches them: it plays through `env`, `state`,
+# `actions` and `constants`, none of which import it.
+#
+# The agent container is stock slim Python plus wheels resolved from the
+# submission's own requirements.txt -- numpy and lightgbm, no torch. Importing
+# these unconditionally made `import monopoly_game_engine` raise there, which
+# the shim reported as a missing `engine` module, which the validator tried to
+# install from PyPI, which aborted the build before a single game ran.
+#
+# So they are optional. Present for training, absent in the match sandbox.
+try:
+    import torch
+    from .agent_ppo import PPOAgent
+    from .agent_ddqn import DDQNAgent
+    from .train import DEFAULT_OPPONENT_IDS, OPPONENT_IDS, train, evaluate
+    HAS_TORCH = True
+except ImportError:  # match sandbox: no torch, and nothing here needs it
+    torch = None
+    PPOAgent = DDQNAgent = train = evaluate = None
+    DEFAULT_OPPONENT_IDS = OPPONENT_IDS = ()
+    HAS_TORCH = False
 
 
 def train_ppo(

@@ -374,17 +374,7 @@ class TestIsolation(unittest.TestCase):
         self.assertIn("FALLBACK=False", completed.stdout, completed.stderr)
 
     def test_the_agent_adds_no_heavy_dependency_of_its_own(self) -> None:
-        """What we cost the sandbox is the delta over the engine, not the total.
-
-        ``monopoly_game_engine/__init__.py`` imports torch itself, so torch is in
-        any process that can hold an ``env`` at all -- including this one, before
-        ``agent`` is imported. That is the harness's dependency and not ours, and
-        it is why ``requirements.txt`` does not list it: the Linux ``torch`` wheel
-        pulls the CUDA stack and would not fit the 2 GiB cap on its own.
-
-        The number this test defends is the one we control: everything our agent
-        adds on top of the engine.
-        """
+        """What we cost the sandbox is the delta over the engine, not the total."""
         # Our own modules load as top-level names by design -- see
         # underdog_gbm/__init__.py for why they are not renamed.
         OURS = {"agent", "underdog_gbm", "engine", "engine_shim", "act_lib",
@@ -400,11 +390,47 @@ class TestIsolation(unittest.TestCase):
         added = {r for r in withagent - baseline
                  if not r.startswith("_") and r not in sys.stdlib_module_names}
 
-        self.assertIn("torch", baseline, "engine no longer imports torch; re-check "
-                                         "whether requirements.txt should list it")
+        self.assertNotIn("torch", added, "the agent must never pull torch in")
         self.assertEqual(sorted(added - OURS), sorted(EXPECTED),
                          "the agent pulled in a third-party package that "
                          "requirements.txt does not account for")
+
+    def test_the_policy_loads_with_torch_unavailable(self) -> None:
+        """The match sandbox has no torch, and the agent must not need one.
+
+        The agent container is stock slim Python plus wheels resolved from
+        ``requirements.txt`` -- numpy and lightgbm. Nothing is injected. When
+        ``monopoly_game_engine/__init__.py`` imported torch unconditionally,
+        importing it raised there, the shim reported that as a missing
+        ``engine`` module, and the validator tried to pip-install ``engine``
+        from PyPI and aborted the build before a single game ran.
+
+        This runs a fresh interpreter with torch blocked at the import hook and
+        asserts the gradient-boosted policy still loads. It fails on a
+        developer machine only if the dependency creeps back in, which is
+        exactly when it should.
+        """
+        probe = (
+            "import builtins, sys\n"
+            "_real = builtins.__import__\n"
+            "def _blocked(name, *a, **k):\n"
+            "    if name == 'torch' or name.startswith('torch.'):\n"
+            "        raise ImportError(\"No module named 'torch'\")\n"
+            "    return _real(name, *a, **k)\n"
+            "builtins.__import__ = _blocked\n"
+            f"sys.path.insert(0, {str(ROOT)!r})\n"
+            "import agent\n"
+            "agent._policy()\n"
+            "print('FALLBACK=' + str(agent._FALLBACK))\n"
+            "print('TORCH=' + str('torch' in sys.modules))\n"
+        )
+        out = subprocess.run([sys.executable, "-c", probe],
+                             capture_output=True, text=True, timeout=180)
+        self.assertEqual(out.returncode, 0,
+                         f"agent failed to import without torch:\n{out.stderr}")
+        self.assertIn("FALLBACK=False", out.stdout,
+                      f"fell back to the rule agent without torch:\n{out.stderr}")
+        self.assertIn("TORCH=False", out.stdout, "torch was imported after all")
 
     def test_importing_us_does_not_put_a_second_engine_on_the_path(self) -> None:
         """``underdog/engine/`` is a full vendored copy of the simulator.
