@@ -47,6 +47,7 @@ to the alternative: without it, an import failure forfeits every game.
 """
 from __future__ import annotations
 
+import inspect
 import sys
 from pathlib import Path
 from typing import Any, Sequence
@@ -135,13 +136,169 @@ def _fallback() -> Any:
     return ChampionScore()
 
 
+def _as_actions(value: Any) -> list[int] | None:
+    """Coerce ``value`` to a list of action ids, or ``None`` if it is not one.
+
+    Deliberately tolerant. The action list arrives as a ``list[int]`` in one
+    spec version and could plausibly arrive as a tuple, an integer array or a
+    sequence of descriptor objects carrying an ``action`` field; none of those
+    is worth failing a match over.
+    """
+    if value is None or isinstance(value, (str, bytes, int, float, bool)):
+        return None
+    try:
+        items = list(value)
+    except TypeError:
+        return None
+    if not items:
+        return []
+    out: list[int] = []
+    for item in items:
+        for attr in ("action", "action_id", "id", "index"):
+            if hasattr(item, attr):
+                item = getattr(item, attr)
+                break
+        try:
+            out.append(int(item))
+        except (TypeError, ValueError):
+            return None
+    return out
+
+
+def _looks_like_env(obj: Any) -> bool:
+    """The board surface the policy actually reads."""
+    return obj is not None and hasattr(obj, "properties") and hasattr(obj, "players")
+
+
+class _EnvView:
+    """A board snapshot wearing the one method the policy also needs.
+
+    The policy asks the board for ``get_allowed_actions(pid)``. A read-only
+    snapshot may expose the deeds and players without that method, in which
+    case the legal list we were handed separately is the same information.
+    Everything else passes straight through.
+    """
+
+    __slots__ = ("_board", "_allowed")
+
+    def __init__(self, board: Any, allowed: Sequence[int]) -> None:
+        object.__setattr__(self, "_board", board)
+        object.__setattr__(self, "_allowed", [int(a) for a in allowed])
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(object.__getattribute__(self, "_board"), name)
+
+    def get_allowed_actions(self, player_id: int | None = None) -> list[int]:
+        return list(object.__getattribute__(self, "_allowed"))
+
+
+def _unpack(args: tuple, kwargs: dict) -> tuple[Any, list[int], Any, int | None]:
+    """Sort whatever we were called with into (state, allowed, env, seat).
+
+    Two published spec versions order the parameters differently --
+    ``(state, allowed_actions)`` with ``env``/``player_id`` as declared extras,
+    and ``(state, player_id, allowed_actions)`` -- so position alone cannot say
+    what a value is. Types can: the legal actions are a sequence of ints, a
+    seat is a bare int, and the board answers to ``properties`` and
+    ``players``. Sorting by shape rather than by position means a reordered
+    call is handled instead of being a crash on every decision.
+    """
+    pool: list = []
+
+    def named(names, fits, convert=lambda v: v):
+        """Take a keyword value only if its *shape* matches its name.
+
+        A name is good evidence but not proof: a caller that passed the four
+        values in the other order still labels them, and believing a label
+        over the value is how the whole decision loop ends up crashing. A
+        value that does not fit its name is not discarded -- it goes into the
+        pool and is sorted by shape with everything else.
+        """
+        for name in names:
+            value = kwargs.get(name)
+            if value is None:
+                continue
+            if fits(value):
+                return convert(value)
+            pool.append(value)
+        return None
+
+    env = named(("env", "game", "environment"), _looks_like_env)
+    allowed = named(("allowed_actions", "allowed", "legal_actions", "actions"),
+                    lambda v: _as_actions(v) is not None, _as_actions)
+    seat = named(("player_id", "pid", "seat", "agent_id"),
+                 lambda v: isinstance(v, int) and not isinstance(v, bool))
+    state = kwargs.get("state", kwargs.get("observation"))
+    pool.extend(args)
+
+    for value in pool:
+        if value is None:
+            continue
+        if env is None and _looks_like_env(value):
+            env = value
+            continue
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, int):
+            # A bare int is the seat; a second one is the decision seed, which
+            # this policy does not use (it is deterministic).
+            if seat is None:
+                seat = value
+            continue
+        actions = _as_actions(value)
+        # The 300-float observation is also a sequence, so length and content
+        # separate it from the legal list: action ids are small and few.
+        if actions is not None and allowed is None and len(actions) != 300:
+            allowed = actions
+            continue
+        if state is None:
+            state = value
+
+    # A read-only decision state carries the pieces as attributes.
+    if state is not None and not _looks_like_env(env):
+        for attr in ("env", "game", "board"):
+            candidate = getattr(state, attr, None)
+            if _looks_like_env(candidate):
+                env = candidate
+                break
+        if allowed is None:
+            allowed = _as_actions(getattr(state, "actions", None))
+        if seat is None:
+            seat = getattr(state, "player_id", None)
+
+    try:
+        seat = int(seat) if seat is not None else None
+    except (TypeError, ValueError):
+        seat = None
+    return state, (allowed or []), env, seat
+
+
+_WARNED_NO_BOARD = False
+
+
+def _warn_no_board() -> None:
+    """Say once that we are playing blind, then stop.
+
+    This is the loudest signal available that the harness is not handing over
+    a board: every feature this agent has is computed from one, so without it
+    the policy never runs at all. Printed once rather than per decision --
+    a few thousand identical lines would bury it.
+    """
+    global _WARNED_NO_BOARD
+    if not _WARNED_NO_BOARD:
+        _WARNED_NO_BOARD = True
+        print("[UNDERDOG] no board in the decision state; the policy cannot "
+              "run and legal actions are being played instead",
+              file=sys.stderr, flush=True)
+
+
 def _legal(action: Any, allowed: Sequence[int]) -> int:
     """Return ``action`` if it is legal, else a legal substitute.
 
     Never raises and never returns a non-member of ``allowed``: an illegal
     return fails the match outright, so there is no value in propagating.
     """
-    allowed = [int(a) for a in allowed]
+    allowed = _as_actions(allowed) or []
     if not allowed:
         return 0
     try:
@@ -172,29 +329,41 @@ class Agent:
                 break
         self.player_id = int(player_id)
 
-    def choose_action(self, state=None, allowed_actions=None, env=None,
-                      player_id=None) -> int:
-        seat = self.player_id if player_id is None else int(player_id)
-        if env is None:
-            # No board: nothing this policy reads is recoverable from the
-            # state vector, so take a legal action rather than guess.
-            return _legal(None, allowed_actions or [])
-        # The engine only asks an agent to act on its own turn, so trust the
-        # engine's view of the acting seat over the one passed at construction.
+    def choose_action(self, *args: Any, **kwargs: Any) -> int:
+        """Accepts either published parameter order; never raises.
+
+        Declared as ``*args`` because two spec versions disagree on position.
+        ``_unpack`` sorts the values by shape; ``choose_action`` below carries
+        the named parameters so a harness that inspects the signature still
+        sees them.
+        """
+        state, allowed, env, seat = _unpack(args, kwargs)
+        if seat is None:
+            seat = self.player_id
+        if not _looks_like_env(env):
+            # No board. Nothing the policy reads is recoverable from the
+            # 300-float vector, so take a legal action rather than guess --
+            # a weak move scores; a crash is a strike.
+            _warn_no_board()
+            return _legal(None, allowed)
+        # The engine only asks an agent to act on its own turn, so trust its
+        # view of the acting seat over the one passed at construction.
         try:
             seat = int(env.whose_turn())
         except Exception:
             pass
-        if allowed_actions is None:
+        if not allowed:
             try:
-                allowed_actions = list(env.get_allowed_actions(seat))
+                allowed = _as_actions(env.get_allowed_actions(seat)) or []
             except Exception:
-                allowed_actions = []
+                allowed = []
+        if not hasattr(env, "get_allowed_actions"):
+            env = _EnvView(env, allowed)
         try:
             action = _policy().choose_action(env, seat, 0)
         except Exception:
             action = None
-        return _legal(action, allowed_actions)
+        return _legal(action, allowed)
 
     def __repr__(self) -> str:
         kind = "rules (fallback)" if _FALLBACK else VARIANT
@@ -208,11 +377,33 @@ def make_agent(player_id: int = 0, **kwargs: Any) -> Agent:
 _SEATS: dict[int, Agent] = {}
 
 
-def choose_action(state, allowed_actions, env=None, player_id=None) -> int:
-    """The required contract, with the two optional extras declared."""
-    seat = 0 if player_id is None else int(player_id)
+def choose_action(*args: Any, **kwargs: Any) -> int:
+    """The required contract.
+
+    Takes ``*args`` so that no parameter order can bind a value to the wrong
+    name before ``_unpack`` has judged it by shape. The declared signature a
+    harness sees is ``__signature__`` below, which names every parameter --
+    including ``env``, which one spec version passes only when it is declared.
+    """
+    state, allowed, env, seat = _unpack(args, kwargs)
+    seat = 0 if seat is None else seat
     agent = _SEATS.get(seat)
     if agent is None:
         agent = Agent(seat)
         _SEATS[seat] = agent
-    return agent.choose_action(state, allowed_actions, env, seat)
+    # Already resolved: pass by keyword so they are not sorted a second time.
+    return agent.choose_action(state=state, allowed_actions=allowed,
+                               env=env, player_id=seat)
+
+
+# What a harness sees when it inspects the entry point. The runtime accepts
+# any order, but introspection must still show the declared contract -- a
+# harness that reads the signature to decide whether to pass ``env`` will not
+# pass it unless it is named here.
+_P = inspect.Parameter
+choose_action.__signature__ = inspect.Signature([
+    _P("state", _P.POSITIONAL_OR_KEYWORD),
+    _P("player_id", _P.POSITIONAL_OR_KEYWORD),
+    _P("allowed_actions", _P.POSITIONAL_OR_KEYWORD),
+    _P("env", _P.POSITIONAL_OR_KEYWORD, default=None),
+], return_annotation=int)

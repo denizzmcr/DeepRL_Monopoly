@@ -19,13 +19,18 @@ them against an identical distribution of opponents.
 
 | rank | agent | team | win rate | 95% CI |
 | ---: | --- | --- | ---: | --- |
-| 1 | **UNDERDOG (ours)** | this repository | **38.8%** | [32.8, 45.0] |
-| 2 | 6c0de | `6c0de/exposure-monopoly-agent` | 36.7% | [30.8, 42.9] |
-| 3 | inncenta | `Inncenta/monopoly` | 28.8% | [23.4, 34.8] |
+| 1 | **UNDERDOG (ours)** | this repository | **40.4%** | [34.4, 46.7] |
+| 2 | 6c0de | `6c0de/exposure-monopoly-agent` | 35.0% | [29.2, 41.2] |
+| 3 | inncenta | `Inncenta/monopoly` | 29.2% | [23.8, 35.2] |
 | 4 | slayer | `emirkaanozdemr/monopoly` | 25.8% | [20.7, 31.7] |
 | 5 | aline | `alinebidal10-afk/monopoly-competition-agent` | 23.8% | [18.8, 29.5] |
-| 6 | expo | `emingurbuz9483/exposure-monopoly-algorithm` | 21.2% | [16.5, 26.9] |
+| 6 | expo | `emingurbuz9483/exposure-monopoly-algorithm` | 20.8% | [16.2, 26.4] |
 | 7 | boom | `EnzeCbe/monopoly-boom` | 0.0% | [0.0, 1.6] |
+
+Measured **through `agent.py` itself**, the file the harness loads, so seat
+resolution, argument sorting and illegal-action substitution are all inside the
+number. An earlier identical run that entered the policy directly scored 38.8%;
+the two agree within noise, which is the point of re-running it.
 
 **We finish first**, and the interval excludes parity. A larger run the same
 day — 1,120 games over the 8-agent field including the previous submission —

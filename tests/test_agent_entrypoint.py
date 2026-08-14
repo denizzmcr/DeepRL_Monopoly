@@ -95,10 +95,77 @@ class TestContract(unittest.TestCase):
     def test_declares_the_required_signature(self) -> None:
         import inspect
         params = list(inspect.signature(entrypoint.choose_action).parameters)
-        self.assertEqual(params[:2], ["state", "allowed_actions"],
-                         "the two required parameters must come first, in order")
-        self.assertEqual(params[2:], ["env", "player_id"],
-                         "the optional extras must be declared to be passed")
+        self.assertEqual(params[:3], ["state", "player_id", "allowed_actions"],
+                         "the three required parameters must come first, in order")
+        self.assertIn("env", params,
+                      "env must be declared or a harness will not pass it")
+
+    def test_every_published_parameter_order_yields_the_same_legal_action(self) -> None:
+        """Two spec versions order these differently; both must work.
+
+        Under the match rules a crash is a strike and three strikes replace the
+        agent with a fixed bot, so a reordered call has to be handled rather
+        than raised on.
+        """
+        random.seed(7)
+        env = MonopolyEnv(agent_ids=[0], max_rounds=200)
+        env.reset()
+        pid = env.whose_turn()
+        legal = list(env.get_allowed_actions(pid))
+        vec = env._get_state(pid)
+
+        calls = {
+            "new positional": lambda: entrypoint.choose_action(vec, pid, legal, env),
+            "new keyword": lambda: entrypoint.choose_action(
+                state=vec, player_id=pid, allowed_actions=legal, env=env),
+            "old positional": lambda: entrypoint.choose_action(vec, legal, env, pid),
+            "old keyword": lambda: entrypoint.choose_action(
+                vec, legal, env=env, player_id=pid),
+        }
+        results = {}
+        for name, call in calls.items():
+            with self.subTest(convention=name):
+                action = call()
+                self.assertIn(action, legal)
+                results[name] = action
+        self.assertEqual(len(set(results.values())), 1,
+                         f"orders disagreed on the same position: {results}")
+
+    def test_a_read_only_decision_state_is_understood(self) -> None:
+        """The newer spec hands over a snapshot object, not a live engine."""
+        random.seed(7)
+        env = MonopolyEnv(agent_ids=[0], max_rounds=200)
+        env.reset()
+        pid = env.whose_turn()
+        legal = list(env.get_allowed_actions(pid))
+
+        class DecisionState:
+            ruleset_version = "ppo-plus-v2"
+            schema_version = 1
+            vector = None
+            board = env
+            actions = legal
+            decision_seed = 12345
+            player_id = pid
+
+        self.assertIn(entrypoint.choose_action(DecisionState(), pid, legal), legal)
+
+    def test_a_board_without_get_allowed_actions_still_works(self) -> None:
+        """A read-only board need not carry the engine's query methods."""
+        random.seed(7)
+        env = MonopolyEnv(agent_ids=[0], max_rounds=200)
+        env.reset()
+        pid = env.whose_turn()
+        legal = list(env.get_allowed_actions(pid))
+
+        class Snapshot:
+            """Deeds and players and nothing else — no query methods."""
+
+            def __init__(self) -> None:
+                self.properties = env.properties
+                self.players = env.players
+
+        self.assertIn(entrypoint.choose_action(None, pid, legal, Snapshot()), legal)
 
     def test_exports_both_calling_conventions(self) -> None:
         self.assertTrue(callable(entrypoint.choose_action))

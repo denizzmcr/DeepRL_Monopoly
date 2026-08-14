@@ -14,16 +14,31 @@ commit and imports **`agent.py`** from the repository root. Nothing else is
 uploaded, and no file needs to be named or configured anywhere.
 
 ```python
-# what the harness calls
+# the declared contract
 from agent import choose_action
-action = choose_action(state, allowed_actions, env=env, player_id=seat)
+action = choose_action(state, player_id, allowed_actions, env)
 ```
 
 `agent.py` also exports `Agent` and `make_agent(player_id)` for the class-form
-calling convention. `env` and `player_id` are the optional extras the harness
-passes by keyword; this agent declares them because its features read the board
-directly and the 300-float state vector cannot be turned back into an
-environment.
+calling convention.
+
+**It accepts either published parameter order.** Two versions of the spec
+disagree — `(state, allowed_actions)` with `env`/`player_id` as declared
+keyword extras, and `(state, player_id, allowed_actions)`. Position therefore
+cannot say what a value is, so `_unpack` sorts by shape instead: a sequence of
+small ints is the legal list, a bare int is the seat, an object answering to
+`properties` and `players` is the board. A reordered call is handled rather
+than raised on, which matters because the match rules make a crash a strike and
+three strikes replace the agent with a fixed bot.
+
+The signature a harness *sees* is `(state, player_id, allowed_actions,
+env=None)`, published via `__signature__`. `env` is named deliberately: one
+spec version passes it only when it is declared, and this agent needs a board —
+all 71 features are computed from deeds, players, cash and houses, and the
+300-float vector cannot be turned back into one.
+
+If no board arrives in any form, the agent plays legal actions and prints one
+line to `stderr`. Legal, so no strikes; weak, and said out loud.
 
 ## 2. The policy
 
@@ -64,12 +79,12 @@ engine, seat-balanced. Parity is 25%, intervals are Wilson 95%. Full method in
 
 | rank | agent | win rate | 95% CI |
 | ---: | --- | ---: | --- |
-| 1 | **ours** | **38.8%** | [32.8, 45.0] |
-| 2 | 6c0de | 36.7% | [30.8, 42.9] |
-| 3 | inncenta | 28.8% | [23.4, 34.8] |
+| 1 | **ours** | **40.4%** | [34.4, 46.7] |
+| 2 | 6c0de | 35.0% | [29.2, 41.2] |
+| 3 | inncenta | 29.2% | [23.8, 35.2] |
 | 4 | slayer | 25.8% | [20.7, 31.7] |
 | 5 | aline | 23.8% | [18.8, 29.5] |
-| 6 | expo | 21.2% | [16.5, 26.9] |
+| 6 | expo | 20.8% | [16.2, 26.4] |
 | 7 | boom | 0.0% | [0.0, 1.6] |
 
 Reproduced on a larger 1,120-game run over an 8-agent field: ours 39.5%
@@ -86,17 +101,20 @@ Reproduced on a larger 1,120-game run over an 8-agent field: ours 39.5%
   the shape the competition uses — has us ahead of aline 37.9% to 21.2%.
 - **Three rivals changed code on the day this was measured.** Every number here
   has a shelf life of about a day.
+- Measured **through `agent.py`**, the file the harness loads, so argument
+  sorting, seat resolution and illegal-action substitution are inside the
+  number. An identical run entering the policy directly scored 38.8%.
 
 ## 4. Contract compliance
 
-Verified by `tests/test_agent_entrypoint.py` (15 tests) and by the official
+Verified by `tests/test_agent_entrypoint.py` (20 tests) and by the official
 `python -m submission.validate`.
 
 | requirement | how it is met |
 |---|---|
-| only legal actions | every return is checked against `allowed_actions` and replaced if absent. Measured: **0 illegal in 1,540 gauntlet games and 4 seat-rotated validator games.** |
+| only legal actions | every return is checked against `allowed_actions` and replaced if absent. Measured: **0 illegal in 1,960 gauntlet games and 4 seat-rotated validator games.** |
 | never touch the global RNG | the policy is a deterministic argmax and draws from no random source. A test snapshots `random.getstate()` and `np.random.get_state()` across a decision. |
-| latency | p50 **1.3 ms**, p95 **6.6 ms**, max 7.6 ms over 594 decisions, single-core. |
+| per-decision time limit (**2 s**) | p50 **1.2 ms**, p95 **7.7 ms**, max 10.1 ms in a clean sandbox — three orders of magnitude of margin. |
 | never raise | the entry point substitutes rather than propagating; in a scored match an exception and an illegal action lose equally. |
 | no ASU at match time | §6. |
 
@@ -134,8 +152,8 @@ decision raises `OSError: Library not loaded: @rpath/libomp.dylib`. That is a
 forfeit, not a slow game. On a Mac, `brew install libomp` first. This bit us
 during development and is why §7 exists.
 
-Checkout size: the working tree is ~7.6 MB against a 100 MB cap, of which 4.3 MB
-is the two boosters.
+Checkout size: the working tree is ~7.6 MB against the **250 MiB** cap, of
+which 4.3 MB is the two boosters.
 
 ### Measured in a clean sandbox
 
