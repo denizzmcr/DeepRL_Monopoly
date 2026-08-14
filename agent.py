@@ -2,32 +2,48 @@
 
     choose_action(state, allowed_actions, env, player_id) -> int
 
-``env`` and ``player_id`` are the optional extras the harness passes by
-keyword when they are declared after the two required parameters. This agent
-declares them because it needs the board itself: the policy is a set of
-hand-written rules that read deeds, colour groups, houses, cash and pending
-trades, and the 300-float state vector cannot be turned back into an
-environment.
+``env`` and ``player_id`` are the optional extras the harness passes by keyword
+when they are declared after the two required parameters. This agent declares
+them because it needs the board itself: its features read deeds, colour groups,
+houses, cash, the house bank and pending trades, and the 300-float state vector
+cannot be turned back into an environment.
 
 Both the function form and the class form are exported, so either calling
 convention works. A module-level ``Agent`` keeps one policy object per seat.
+
+The policy
+----------
+Two gradient-boosted models over engineered features, in ``underdog_gbm/``.
+Model A owns the auction family, Model B every other family; each scores the
+legal candidates and the agent takes the argmax. See ``underdog_gbm/policy.py``
+for the split and ``docs/GAUNTLET.md`` for what it measured against the other
+teams' agents.
 
 Contract compliance
 -------------------
 * **Only legal actions.** Every return value is checked against
   ``allowed_actions`` and replaced if it is not a member. The rest of this
   repository prefers to fail closed on an illegal action, which is right for
-  development because it surfaces bugs — but in a scored match an exception
-  and an illegal action both lose the game, so here it substitutes instead.
-* **The global RNG is never touched.** The policy is deterministic; its only
-  stochastic branch draws from a private ``random.Random(decision_seed)`` and
-  is disabled at ``EPSILON = 0``. Nothing here calls ``random.*``,
-  ``np.random.*`` or ``torch.rand*``.
-* **Latency.** Rules only, no search and no network: microseconds per
-  decision against the 5 s limit.
+  development because it surfaces bugs — but in a scored match an exception and
+  an illegal action both lose the game, so here it substitutes instead.
+* **The global RNG is never touched.** The policy is a deterministic argmax and
+  draws from no random source, global or private. Nothing here calls
+  ``random.*``, ``np.random.*`` or ``torch.rand*``.
+* **Latency.** LightGBM inference over a few hundred candidate rows: single-core
+  milliseconds, against the per-decision limit.
+* **Dependencies.** ``numpy`` and ``lightgbm``, both wheel-only, both in
+  ``requirements.txt``. Nothing is downloaded at match time.
 
-The policy is ``ChampionScore`` — see ``underdog/heuristic/champion.py`` and
-``docs/GAUNTLET.md`` for what it is and what it measured.
+The fallback, and why it is here
+--------------------------------
+LightGBM is a compiled extension and the boosters are files on disk. If either
+fails to load — a wheel that will not import in the sandbox, a missing OpenMP
+runtime, a truncated checkout — this falls back to ``ChampionScore``, the
+hand-written rule agent in ``underdog/``, which needs no dependency beyond the
+engine. That is a real downgrade and it is announced on ``stderr`` once rather
+than absorbed silently, because a submission that quietly plays a weaker policy
+than the one that was measured is worse than one that says so. It is preferred
+to the alternative: without it, an import failure forfeits every game.
 """
 from __future__ import annotations
 
@@ -36,23 +52,47 @@ from pathlib import Path
 from typing import Any, Sequence
 
 _ROOT = Path(__file__).resolve().parent
-_HEURISTIC = _ROOT / "underdog"
-if str(_HEURISTIC) not in sys.path:
-    sys.path.insert(0, str(_HEURISTIC))
+for _sub in ("underdog_gbm", "underdog"):
+    _p = str(_ROOT / _sub)
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 __all__ = ["Agent", "choose_action", "make_agent", "VARIANT"]
 
-VARIANT = "ChampionScore"
+VARIANT = "GBM"
 
 # Resolved lazily so importing this module cannot fail on a missing package.
 _POLICY: Any = None
+_FALLBACK = False
 
 
 def _policy() -> Any:
-    global _POLICY
-    if _POLICY is None:
+    """Return the policy, loading it on first use.
+
+    The boosters are ~4.3 MB of text and LightGBM is a compiled extension, so
+    neither is touched at import time. A failure here is reported once and then
+    served by the rule agent for the rest of the process.
+    """
+    global _POLICY, _FALLBACK
+    if _POLICY is not None:
+        return _POLICY
+    try:
+        import lightgbm as lgb
+        from underdog_gbm.policy import MonopolyAgent
+        agent = MonopolyAgent()
+        # Load both boosters now. They are lazy by default, and a truncated or
+        # unreadable model file should surface here rather than mid-game on the
+        # first decision of its family -- Model A's family is auctions, which a
+        # game can reach hundreds of decisions in.
+        for booster in (agent.model_a, agent.model_b):
+            booster._b = lgb.Booster(model_file=booster.path)
+        _POLICY = agent
+    except Exception as exc:
+        print(f"[UNDERDOG] gradient-boosted policy unavailable ({type(exc).__name__}:"
+              f" {exc}); falling back to the rule agent", file=sys.stderr, flush=True)
         from heuristic import ChampionScore
         _POLICY = ChampionScore()
+        _FALLBACK = True
     return _POLICY
 
 
@@ -118,7 +158,8 @@ class Agent:
         return _legal(action, allowed_actions)
 
     def __repr__(self) -> str:
-        return f"Agent(seat={self.player_id}, variant={VARIANT})"
+        kind = "rules (fallback)" if _FALLBACK else VARIANT
+        return f"Agent(seat={self.player_id}, policy={kind})"
 
 
 def make_agent(player_id: int = 0, **kwargs: Any) -> Agent:

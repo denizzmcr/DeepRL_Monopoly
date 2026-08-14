@@ -1,338 +1,193 @@
-# SUBMISSION.md — what we are submitting and what it scores
+# SUBMISSION.md — what we are submitting, and what it scores
 
-Read `HANDOFF.md` for project state and `CLAUDE.md` for settled decisions. This
-file is narrower: it describes the artifact that gets submitted, identifies it
-exactly, and records the conditions under which every number below was measured.
+This file describes the artifact that gets submitted, identifies it exactly, and
+records the conditions under which every number below was measured. Read
+[`docs/GAUNTLET.md`](docs/GAUNTLET.md) for the full standings against the other
+teams and [`FINDINGS.md`](FINDINGS.md) for the project history behind them.
 
 ---
 
-## 1. The entry point
+## 1. What is submitted
+
+A repository URL and a pinned 40-character commit SHA. The harness clones that
+commit and imports **`agent.py`** from the repository root. Nothing else is
+uploaded, and no file needs to be named or configured anywhere.
 
 ```python
-from submission_agent import SubmissionAgent
-
-agent = SubmissionAgent(player_id=seat)      # defaults to artifacts/LAST_RESORT.pt
-action = agent.choose_action(env)            # -> one legal action index
+# what the harness calls
+from agent import choose_action
+action = choose_action(state, allowed_actions, env=env, player_id=seat)
 ```
 
-## 0. What is being submitted, and why this one
+`agent.py` also exports `Agent` and `make_agent(player_id)` for the class-form
+calling convention. `env` and `player_id` are the optional extras the harness
+passes by keyword; this agent declares them because its features read the board
+directly and the 300-float state vector cannot be turned back into an
+environment.
 
-**`artifacts/LAST_RESORT.pt`** — 512-wide, `hybrid=True`,
-`restrict_liquidation=True`, 47,500 games of PPO on the fast league.
+## 2. The policy
 
-SHA-256 `d6f276a79dd02a4ea884ae3d63648fa2bd722201e72da534a9bafebc617b0088`
+**Two gradient-boosted models over engineered features**, in `underdog_gbm/`.
 
-Verified 2026-08-13, 48 seat-balanced games vs Fixed-A/B/C:
-
-| check | result |
+| | |
 |---|---|
-| win rate | **31.2%** (parity 25%) |
-| illegal actions | **0** over 47,221 decisions |
-| latency mean / p95 / max | **0.10 / 0.19 / 0.68 ms** |
-| `tests/test_submission_agent.py` | 8 passed, including the ASU-import guard |
+| Model A | `underdog_gbm/models/model_a.txt`, 1,982,297 bytes — owns the **auction** family. Input: the 300-float observation plus a 36-dim action encoding. |
+| Model B | `underdog_gbm/models/model_b.txt`, 2,500,790 bytes — owns **every other** family. Input: 71 engineered features per candidate action, trained with a LambdaRank objective over each decision's legal candidates. |
 
-Latency leaves ~5,000x headroom against the ~1 s per-move budget we designed for.
+A dispatcher routes each decision by family; the agent takes the argmax over
+legal candidates. Forced decisions (one legal action) skip the models entirely.
 
-**Selected on worst case, not best case.** Across seven seat-balanced tournaments
-run on 2026-08-12/13, this checkpoint scored between **23.8% and 32.2%**. Every
-other candidate we trained wins some field and collapses in another:
+The 71 features are measurable quantities of the position — expected landings
+per square from an exact Markov chain over the simulator's movement rules,
+rent-income rates and dollar valuations under ownership / group-completion /
+denial, group dynamics, liquidity and solvency, exact trade decoding with
+both-sides valuations. No feature encodes a decision.
 
-| candidate | worst field | best field |
-|---|---|---|
-| **LAST_RESORT** | **23.8%** | 32.2% |
-| distilled students (v1/v2/v3) | 12.5% | 29.1% |
-| CHAMPION.pt (previous submission) | 7.8% | 20.3% |
+**Training.** Supervised on ~150,000 decision points (~11M candidate rows) from
+large-scale self-play across varied opponent fields, against this project's own
+strongest internal reference policy, with held-out games on disjoint seed blocks
+for model selection. Held-out top-1 agreement 95.8% overall; the lowest family
+is deed exchanges at 76.1%, measured to be dominated by near-equivalued
+alternatives.
 
-Field dependence in this game is larger than the difference between our models --
-changing two of six policies in a four-player tournament flipped which of ASU and
-the heuristic ranked first. Against three unknown agents, the policy that is never bad
-beats the policy that is sometimes best. That is the whole argument for this
-choice, and it is why the higher-ceiling distilled agents were not submitted.
+**This is a learned model**, not a hand-written rule set — the requirement in
+`docs/CLAUDE.md` §1 — and it contains no ASU. See §6.
 
-the hand-written heuristic outscores this checkpoint in most fields (up to 53.1%) and is
-**not eligible**: the submission must be a learned model.
+## 3. Measured strength
 
-`submission_agent.py` sits at the repository root and is the only file the match
-harness needs. It runs on CPU under `eval()` + `torch.inference_mode()`, loads
-only the actor (the critic and optimizer state in the checkpoint are training
-machinery), and is deterministic: it takes the argmax over legal actions rather
-than sampling, with ties breaking to the lowest action index.
+Against the six other teams' agents, all pulled the same day, on one shared
+engine, seat-balanced. Parity is 25%, intervals are Wilson 95%. Full method in
+[`docs/GAUNTLET.md`](docs/GAUNTLET.md).
 
-`player_id` is the seat being played and need not match the seat the checkpoint
-trained in. Training rotated the learner through all four seats and the
-observation is built per player, so the weights are seat-agnostic.
+**Competition shape** — every 4-agent subset of the 7-agent field, 3 seeds, all
+4 seat rotations, 420 games:
 
-**It never substitutes.** If the action it picks is not in
-`env.get_allowed_actions(player_id)`, it raises `IllegalActionError` rather than
-falling back to `END_TURN`. A silent fallback would make a broken policy look
-like a working one while playing something nobody measured.
+| rank | agent | win rate | 95% CI |
+| ---: | --- | ---: | --- |
+| 1 | **ours** | **38.8%** | [32.8, 45.0] |
+| 2 | 6c0de | 36.7% | [30.8, 42.9] |
+| 3 | inncenta | 28.8% | [23.4, 34.8] |
+| 4 | slayer | 25.8% | [20.7, 31.7] |
+| 5 | aline | 23.8% | [18.8, 29.5] |
+| 6 | expo | 21.2% | [16.5, 26.9] |
+| 7 | boom | 0.0% | [0.0, 1.6] |
 
-**It never imports `ASU_FROZEN_TEACHER`.** The inference path is written out
-locally instead of reusing `ASU_FROZEN_TEACHER.evaluate._NeuralAdapter`, which is
-otherwise the same algorithm. `tests/test_submission_agent.py` imports the module
-in a fresh interpreter and fails if `ASU_FROZEN_TEACHER`, `monopoly_bench`,
-`RL_CFR_MONOPOLYMODIFIED` or `SLM_HANDMADE_MONOPOLY` appears in that
-interpreter's `sys.modules`; a second test asserts the two paths choose the same
-action at every decision of a full game, so the measured results below carry over
-to the packaged agent.
+Reproduced on a larger 1,120-game run over an 8-agent field: ours 39.5%
+[35.5, 43.6], 6c0de 36.4%, and the heuristic this replaced 21.8% (6th of 8).
 
----
+**Honest limits on that number:**
 
-## 2. Checkpoint identity
+- The lead over 6c0de is **not statistically separated** — the intervals overlap
+  almost entirely and the direct split was 35.8% to 33.8%. "Level with 6c0de,
+  clear of the rest" is what the data supports.
+- Against **three copies of `aline`**, this agent takes 20.0% where the
+  heuristic it replaced took 40.8%. It is not strictly dominant. The interval
+  still contains parity, and the round-robin — four different agents per table,
+  the shape the competition uses — has us ahead of aline 37.9% to 21.2%.
+- **Three rivals changed code on the day this was measured.** Every number here
+  has a shelf life of about a day.
 
-| field | value |
+## 4. Contract compliance
+
+Verified by `tests/test_agent_entrypoint.py` (15 tests) and by the official
+`python -m submission.validate`.
+
+| requirement | how it is met |
 |---|---|
-| path | `artifacts/CHAMPION.pt` (force-added to git; `artifacts/` is otherwise ignored) |
-| **SHA-256** | `a3ad0837a76ef2f41bd2b48ba5fc94c8b1c261cf92bff77865e844154b17f228` |
-| size | 14,204,135 bytes |
-| ruleset | `ppo-plus-v2` |
-| checkpoint format | 3 |
-| state dim / action dim | 300 / 2958 |
-| network | `ActorNetwork`, 3 × (Linear 256 → LayerNorm → ReLU) → 2958 |
-| hybrid | `True` |
-| games trained | 4,000 (from scratch) |
-| policy steps | 3,130,071 |
-| trained in seat | 0 (with seat rotation) |
+| only legal actions | every return is checked against `allowed_actions` and replaced if absent. Measured: **0 illegal in 1,540 gauntlet games and 4 seat-rotated validator games.** |
+| never touch the global RNG | the policy is a deterministic argmax and draws from no random source. A test snapshots `random.getstate()` and `np.random.get_state()` across a decision. |
+| latency | p50 **1.3 ms**, p95 **6.6 ms**, max 7.6 ms over 594 decisions, single-core. |
+| never raise | the entry point substitutes rather than propagating; in a scored match an exception and an illegal action lose equally. |
+| no ASU at match time | §6. |
 
-`training_config` as stored in the file:
+Note this is the one place the repository deliberately **does not** fail closed.
+Everywhere else an illegal action raises, which is right during development
+because it surfaces bugs. `agent.py` substitutes instead, because forfeiting a
+match to prove a point is not a trade worth making.
+
+## 5. Environment and packaging
+
+The rules cap `requirements.txt` at **32 wheel-only PyPI entries**, resolve them
+at validation time and ship the lock with the artifact; nothing is downloaded
+during a match. Server agents run in Docker, Colab agents in a separate venv
+capped at **2 GiB**.
 
 ```
-gamma 0.99   lam 0.95   clip_eps 0.2   entropy_coef 0.005   value_coef 0.5
-max_grad_norm 0.5   n_steps 1024   n_epochs 4   batch_size 64
-win_loss_bonus 1.0   restrict_liquidation True
+numpy>=1.26,<3
+lightgbm>=4.0,<5
 ```
 
-Verify with:
+Two entries of 32. Both publish wheels for every platform involved; neither
+needs a compiler.
 
-```powershell
-venv\Scripts\python.exe -c "import submission_agent, json; print(json.dumps(submission_agent.SubmissionAgent(0).describe(), indent=1))"
+**torch is deliberately absent.** The submitted policy never calls it. The
+engine imports torch on its own (`monopoly_game_engine/__init__.py:20`), but
+that is the harness's dependency and the harness supplies it — listing it here
+would pull the Linux CUDA wheel and exceed the 2 GiB sandbox by itself. A test
+pins this reasoning and will fail if the engine ever stops importing torch.
+
+**The one portability hazard, stated plainly.** LightGBM links OpenMP. Its
+manylinux wheel vendors `libgomp`, so a Linux install — Docker and Colab, i.e.
+both match environments — is self-contained. **macOS is different**: the wheel
+does not vendor `libomp`, `pip install lightgbm` still succeeds, and then every
+decision raises `OSError: Library not loaded: @rpath/libomp.dylib`. That is a
+forfeit, not a slow game. On a Mac, `brew install libomp` first. This bit us
+during development and is why §7 exists.
+
+Checkout size: the working tree is ~7.6 MB against a 100 MB cap, of which 4.3 MB
+is the two boosters. `directory_size()` excludes `.git`, so repository history
+does not count.
+
+## 6. The ASU prohibition
+
+We were instructed that ASU may be used as a **training opponent and evaluation
+benchmark** but never implemented directly, imitated, or run at match time.
+
+- `grep -ri asu underdog_gbm/` returns nothing but the word "measured".
+- `tests/test_agent_entrypoint.py` imports `agent` in a **fresh interpreter**,
+  loads the policy, and asserts that no module under `ASU_FROZEN_TEACHER`,
+  `monopoly_bench`, `RL_CFR_MONOPOLYMODIFIED` or `SLM_HANDMADE_MONOPOLY` is in
+  that interpreter's `sys.modules` afterwards. A grep is not enough; a test
+  fails loudly during a rushed merge.
+- A companion test asserts the same fresh interpreter loaded the **real**
+  policy, because an isolation guarantee that only holds for the fallback path
+  guarantees nothing.
+- The models were supervised on this project's own reference policy, not on ASU
+  decisions. Distilling our own heuristic was explicitly approved; distilling
+  ASU was not, and is not what happened.
+
+ASU appears in `tools/gauntlet.py` only through the engine pin, and in the
+evaluation harness. Using it as a benchmark is allowed; the submitted agent
+never imports it.
+
+## 7. The fallback, and why it exists
+
+If LightGBM or either booster fails to load, `agent.py` falls back to
+`ChampionScore` — the hand-written rule agent in `underdog/`, which needs no
+dependency beyond the engine — and prints one line to `stderr`.
+
+This is a real downgrade: `ChampionScore` measured 21.8% where the boosters
+measure 38.8%. It is announced rather than absorbed silently, because a
+submission that quietly plays a weaker policy than the one that was measured is
+worse than one that says so. It is still preferred to the alternative, which is
+losing every game to an import error.
+
+`tests/test_agent_entrypoint.py` asserts the fallback is **not** in use, so this
+path cannot go unnoticed in the environment we control.
+
+## 8. Reproducing
+
+```bash
+# the packaging tests, including the ASU isolation guard and the latency report
+venv/bin/python -m pytest tests/test_agent_entrypoint.py -q -s
+
+# the competition-shape round robin (needs external/competitors/ populated)
+venv/bin/python tools/gauntlet.py --mode rr --candidate LGBM --seeds 3 --workers 10
+
+# the official validator, against a fresh clone rather than the working copy
+git clone <repo-url> /tmp/check && venv/bin/python -m submission.validate --local /tmp/check --pretty
 ```
 
-### Provenance — which round-robin row this file is
-
-`artifacts/diag/roundrobin2/summary.json` contains a candidate literally named
-`champion`, and **it is not this file**. `artifacts/CHAMPION.pt` is the candidate
-recorded there as **`w1_fresh_s66`**; the row named `champion` is the earlier
-checkpoint it replaced. The two are easy to confuse and score very differently
-against the trained trio (57.5% vs 83.75%).
-
-This was settled by re-measurement rather than by reading names — see §5, where
-three fields reproduce `w1_fresh_s66`'s numbers exactly and none reproduce
-`champion`'s.
-
----
-
-## 3. The three hardcoded rules
-
-The rules allow at most five. We use three, all of them in `submission_agent.py`.
-
-| # | rule | where |
-|---|---|---|
-| 1 | `fixed_buy_decision` — buy if it completes a monopoly, else if $100 would remain | `monopoly_game_engine/agent_ppo.py` |
-| 2 | `fixed_accept_trade_decision` — accept if it completes a monopoly, else if net worth change ≥ 0 | `monopoly_game_engine/agent_ppo.py` |
-| 3 | `restrict_actions` — never *voluntarily* mortgage or sell | `monopoly_game_engine/action_filters.py` |
-
-Rules 1 and 2 are the hybrid split (`BUY_PROPERTY`, `ACCEPT_TRADE`) the network
-was trained under. Those two decisions were never routed through the actor
-during training, so they are not routed through it at match time either.
-
-**Rule 3 decides the game.** Voluntary liquidation was masked out during
-training, so those logits never received a gradient and are still at
-initialisation. The same checkpoint run *without* the restriction scores **0%**
-and liquidates 251 times per game. This is why the flag lives inside the
-checkpoint (`training_config.restrict_liquidation`) and is read from there rather
-than passed in: a checkpoint trained with the restriction is wrong to run
-without it. Checkpoints predating the flag load as unrestricted, which is how
-they were trained.
-
-Debt-forced liquidation is never blocked. When the engine sets `debt_player` it
-offers liquidation as the only way to settle, and `restrict_actions` leaves that
-case alone.
-
----
-
-## 4. Opponent identity
-
-`fixed-a` … `fixed-f` are `monopoly_game_engine.agents_fixed.FP_AGENT_CLASSES`,
-in order:
-
-| id | class | buying behaviour |
-|---|---|---|
-| `fixed-a` | `TheHoarder` | only to complete a monopoly, or railroads, keeping $600 in reserve |
-| `fixed-b` | `TheDealMaker` | buys if affordable with a $100 buffer; builds only above $800 surplus |
-| `fixed-c` | `TheGambler` | buys every unowned property down to $50 cash |
-| `fixed-d` | `TheBuilder` | only green, dark blue and railroads; saves capital to develop |
-| `fixed-e` | `TheBlocker` | always buys to deny an opponent a monopoly, else normal |
-| `fixed-f` | `TheRailBaron` | railroads and utilities only |
-
-Field names used in the results tables:
-
-| field | seats |
-|---|---|
-| trained trio | `fixed-a`, `fixed-b`, `fixed-c` |
-| unseen trio | `fixed-d`, `fixed-e`, `fixed-f` |
-| builders ×3 | `fixed-d` ×3 |
-| dealmakers ×3 | `fixed-b` ×3 |
-| blockers ×3 | `fixed-e` ×3 |
-| vs a rival neural agent | the previous champion checkpoint, three seats |
-| vs another rival neural agent | the `nohybrid_mixed` checkpoint, three seats |
-
-The two rival-neural fields cannot be reproduced on Machine 2: those checkpoints
-live under `artifacts/`, which is gitignored except for `CHAMPION.pt`. The exact
-seat composition behind the labels "strong mix" and "blocker mix" in
-`roundrobin2/summary.json` is **not recorded anywhere in the repository** — the
-script that produced that file was never committed, only its output. Everything
-else in the table above is confirmed.
-
-"blockers ×3" is a Machine 2 field, not a rename of Machine 1's "blocker mix".
-Three Blockers score 52.5% against us (§5.2) where "blocker mix" scores 57.5%,
-on the same seeds and the same seat balancing — so the two are genuinely
-different opponent sets, and the label really does mean a mix.
-
----
-
-## 5. Measured results
-
-### 5.1 As reported by Machine 1 (`HANDOFF.md`)
-
-Seat-balanced, 80 games per cell, source `artifacts/diag/roundrobin2/summary.json`,
-row `w1_fresh_s66`.
-
-| field | win rate |
-|---|---|
-| trained trio (Fixed-A/B/C) | 57.5% |
-| unseen trio (Fixed-D/E/F) | 68.8% |
-| builders ×3 | 97.5% |
-| dealmakers ×3 | 35.5% (2,500 games; the 31.2% cell below is 80 games) |
-| strong mix | 67.5% |
-| blocker mix | 57.5% |
-| vs a rival neural agent | 35.0% |
-| vs another rival neural agent | 28.7% |
-| **worst case** | **28.7%** |
-
-Parity in a four-player game is 25%. In a mixed field the agent beats the
-strongest scripted agent 52% to 26%.
-
-### 5.2 Independently re-measured on Machine 2
-
-Same evaluator, same seeds, same seat balancing, run against
-`artifacts/CHAMPION.pt` as committed. Outputs in `artifacts/diag/submission/`.
-
-| field | opponents | wins / games | win rate | Wilson 95% | round cap hit | median rounds |
-|---|---|---|---|---|---|---|
-| trained trio | `fixed-a fixed-b fixed-c` | 46 / 80 | **57.50%** | 46.6 – 67.7 | 12.5% | 77 |
-| unseen trio | `fixed-d fixed-e fixed-f` | 55 / 80 | **68.75%** | 57.9 – 77.8 | 5.0% | 58 |
-| builders ×3 | `fixed-d fixed-d fixed-d` | 78 / 80 | **97.50%** | 91.3 – 99.3 | 0.0% | 30 |
-| blockers ×3 | `fixed-e fixed-e fixed-e` | 42 / 80 | **52.50%** | 41.7 – 63.1 | 73.8% | 200 |
-| dealmakers ×3 | `fixed-b fixed-b fixed-b` | 25 / 80 | **31.25%** | 22.2 – 42.1 | 67.5% | 200 |
-
-Four of these fields have a counterpart in `roundrobin2/summary.json`, and all
-four reproduce `w1_fresh_s66` **exactly** — 57.50, 68.75, 97.50, 31.25 — while
-none matches the row named `champion` (83.75, 58.75, 97.50, 31.25). The trained
-trio alone separates them by 26 points. That is what identifies the file.
-"blockers ×3" is new here and has no counterpart to compare against.
-
-### 5.3 Seed sets
-
-`ASU_FROZEN_TEACHER.evaluate` takes one seed per **paired four-game block**: for
-each seed it plays the game four times with the focus agent in each of the four
-seats, so no result depends on turn order.
-
-* **Seeds used: 0 – 19**, i.e. 20 blocks × 4 seats = **80 games per field**.
-* The same seed set was used for every field, so the fields are paired with each
-  other as well.
-* The engine is seeded before `MonopolyEnv` construction, so the shuffled turn
-  order is part of the seed.
-* The training seed is not stored in the checkpoint; the run name `w1_fresh_s66`
-  implies 66, but that is an inference from a filename, not a recorded fact.
-
-### 5.4 Truncation
-
-Two different caps exist and they are easy to conflate.
-
-* **Round cap** — `max_rounds=200`. The game ends and the winner is decided on
-  net worth. `env.done` is set, so this is a *completed* game as far as the
-  evaluator is concerned.
-* **Decision cap** — `max_decisions=20000` in the evaluator. A game that hits
-  this is discarded from win-rate denominators. The field reported as
-  `truncations` in the evaluator's JSON is this one, **not** the round cap.
-
-Measured on Machine 2 across all five fields: the decision cap was hit **0 times
-in 400 games**, and the busiest single game used 9,965 decisions of the 20,000
-available — so no result below is distorted by a discarded game. The round cap
-was reached in 127 of those 400 games (31.8%), concentrated almost entirely in
-the two stalling fields. Per-field rates are in §5.2.
-
-Machine 1's figures for the round cap, from 2,500-game exports: **73%** against
-three Deal-Makers (mean 172 rounds) versus **~15%** against Fixed-A/B/C. Our
-12.5% on 80 games against Fixed-A/B/C is consistent with that.
-
-Against three Deal-Makers, hitting the cap is the normal outcome rather than a
-failure: three aggressive traders keep the board fragmented, nobody assembles a
-dominant position, 0.92 of 4 players are bankrupt at the end, and the game is
-decided on net worth among four survivors. 35.5% of a near-coin-flip among four
-is above the 25% share.
-
-Three Blockers do the same thing, which had not been measured before: **73.8%**
-of those games run to the cap, median exactly 200 rounds, and we still take
-52.5%. An opponent field that denies monopolies stalls the game rather than
-beating us, and stalled games are decided on net worth, where we are ahead.
-
-### 5.5 Per-move latency
-
-Measured by `tests/test_submission_agent.py` over **2,725 moves** — three full
-games, seats 0/1/2, against Fixed-A/B/C, on the Windows machine (8 cores, CPU
-torch 2.13, no GPU), otherwise idle:
-
-| p50 | p95 | max |
-|---|---|---|
-| 1.02 ms | 2.04 ms | 50.4 ms |
-
-A second run on the same machine gave p50 0.88 ms / p95 2.13 ms / max 72.1 ms, so
-p95 is stable to about 0.1 ms. The maximum is the first call, which pays one-off
-kernel setup. The per-move budget in the competition is unknown; the design
-target is ~1 s, and the test asserts p95 stays under it as a regression guard —
-the measured margin is roughly 500×.
-
----
-
-## 6. Reproducing the numbers
-
-```powershell
-# identity
-venv\Scripts\python.exe -c "import submission_agent as s; print(s.checkpoint_sha256(s.DEFAULT_CHECKPOINT))"
-
-# the packaging tests, including ASU isolation and the p95 latency report
-venv\Scripts\python.exe -m pytest tests\test_submission_agent.py -q -s
-
-# one evaluation cell (80 games, seat-balanced)
-venv\Scripts\python.exe -m ASU_FROZEN_TEACHER.evaluate `
-  --focus "ppo:artifacts/CHAMPION.pt" --opponents fixed-a fixed-b fixed-c `
-  --seeds (0..19) --output artifacts\diag\submission\trained_trio.json
-```
-
-`ASU_FROZEN_TEACHER.evaluate` is an evaluation harness, not part of the
-submission. Using it as a benchmark is allowed; the submitted agent never
-imports it.
-
-Test suite status on Windows: **110 passed, 2 failed**. Both failures are in
-`tests/test_gemma4_notebook.py`, both predate this work, and both are platform
-artifacts — they assert POSIX permission bits (`st_mode & 0o077`) that Windows
-cannot represent. The same suite is 97 passed / 0 failed on macOS. Excluding
-those two, the Windows baseline was 95 passed before this work and 110 after,
-the difference being 8 submission tests and 7 parallel-collection tests.
-
----
-
-## 7. Known limits
-
-* **Non-transitivity is large and real.** A previous champion scored 36.5% and
-  19.0% in two four-player fields that differed only in the fourth player. No
-  single win rate here predicts the match, and the other three teams' agents
-  cannot be seen in advance. The worst case in §5.1 (28.7%, against a rival
-  neural agent) is the number to plan against, not the 97.5%.
-* The two rival-neural fields and the "strong mix" / "blocker mix" compositions
-  are not reproducible from this repository (§4).
-* The agent is deterministic. An opponent that could observe it across many games
-  could in principle exploit that; within a round-robin of unseen agents this is
-  not a practical risk, and determinism buys reproducibility.
+Validate a **fresh clone**, never the working copy: `--local .` measures the
+whole directory, and `venv/`, `external/` and `artifacts/` are gitignored but
+still on disk, which reports ~12.6 GB against the 100 MB cap.

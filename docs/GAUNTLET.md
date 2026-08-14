@@ -8,11 +8,67 @@ are written to `artifacts/gauntlet_*.json`.
 
 Parity in a four-player game is **25%**. All intervals are Wilson 95%.
 
-## The result
+---
 
-Balanced round-robin, 600 games. Every one of the 15 four-agent subsets of the
-field, each played across 10 seeds and all 4 seat rotations, so every agent
-plays exactly 400 games and meets the same distribution of opponents.
+## The result (2026-08-14, current submission)
+
+Balanced round-robin against every rival's **then-current** code, pulled the
+same day. Every one of the 35 four-agent subsets of the seven-agent field,
+3 seeds each, all 4 seat rotations: 420 games, each agent appearing in 240 of
+them against an identical distribution of opponents.
+
+| rank | agent | team | win rate | 95% CI |
+| ---: | --- | --- | ---: | --- |
+| 1 | **UNDERDOG (ours)** | this repository | **38.8%** | [32.8, 45.0] |
+| 2 | 6c0de | `6c0de/exposure-monopoly-agent` | 36.7% | [30.8, 42.9] |
+| 3 | inncenta | `Inncenta/monopoly` | 28.8% | [23.4, 34.8] |
+| 4 | slayer | `emirkaanozdemr/monopoly` | 25.8% | [20.7, 31.7] |
+| 5 | aline | `alinebidal10-afk/monopoly-competition-agent` | 23.8% | [18.8, 29.5] |
+| 6 | expo | `emingurbuz9483/exposure-monopoly-algorithm` | 21.2% | [16.5, 26.9] |
+| 7 | boom | `EnzeCbe/monopoly-boom` | 0.0% | [0.0, 1.6] |
+
+**We finish first**, and the interval excludes parity. A larger run the same
+day — 1,120 games over the 8-agent field including the previous submission —
+reproduces it: ours 39.5% [35.5, 43.6], 6c0de 36.4%, and the previous
+submission 21.8% at 6th of 8.
+
+**What this result does not say.** Our lead over 6c0de is *not* statistically
+separated: the intervals overlap almost entirely, and across the tables where
+both sat down the split was 35.8% to 33.8%. The defensible claim is **level
+with 6c0de, clear of the rest** — not that we are the strongest agent in the
+field.
+
+Integrity across both runs, all 1,540 games: **zero illegal actions, zero
+exceptions, zero crashes, from any of the eight agents.**
+
+### The field is moving
+
+Three rivals pushed new code on 2026-08-14, and the changes were not cosmetic:
+
+- **6c0de** replaced their previous entry — 103 lines wrapping `ASUValueV1` —
+  with a 1,853-line self-contained policy titled *NEMESIS, ASU'suz* (ASU-free).
+  The agent that finished first in the 2026-08-13 table below no longer exists.
+  Their file records A/B results against tables labelled "us + aline + deniz +
+  emir": they are benchmarking against us too.
+- **expo** rewrote its decision policy (+187 lines): Markov landing odds,
+  book-value acquisition, denial value, reserve fractions.
+- **boom** merged ~20 commits of teacher distillation and a checkpoint
+  refreshed on 32,647 games. It still wins 0 games.
+
+Worth noting where the field converged: 6c0de and expo independently arrived at
+the same principle our own `ChampionScore` fix used — price a deed at what
+`Property.calculate_net_worth` *scores* it (2.5x list, 5.0x inside a group),
+not at the rent it earns. Our submitted agent's feature set is built on the
+same foundation.
+
+**Any number here has a shelf life of about a day.** Re-run before relying on it.
+
+---
+
+## The previous result (2026-08-13), kept for the record
+
+This is the measurement that motivated replacing the heuristic submission. Same
+method, 600 games, the 15 four-agent subsets of a six-agent field, 10 seeds.
 
 | rank | agent | team | win rate | 95% CI |
 | ---: | --- | --- | ---: | --- |
@@ -20,34 +76,46 @@ plays exactly 400 games and meets the same distribution of opponents.
 | 2 | slayer | `emirkaanozdemr/monopoly` | 26.5% | [22.4, 31.0] |
 | 3= | inncenta | `Inncenta/monopoly` | 25.0% | [21.0, 29.5] |
 | 3= | aline | `alinebidal10-afk/monopoly-competition-agent` | 25.0% | [21.0, 29.5] |
-| 5 | **UNDERDOG (ours)** | this repository | **18.8%** | [15.2, 22.9] |
+| 5 | **UNDERDOG (heuristic, then submitted)** | this repository | **18.8%** | [15.2, 22.9] |
 | 6 | expo | `emingurbuz9483/exposure-monopoly-algorithm` | 17.8% | [14.3, 21.8] |
 
-**We finish fifth of six.** The interval excludes 25%, so being below parity is
-a real effect and not sampling noise. We are statistically tied with expo at the
-bottom; the three agents above us are ahead by intervals that barely overlap
-ours.
+**Fifth of six**, with the interval excluding 25%, so below parity was a real
+effect and not sampling noise.
 
-EnzeCbe's `monopoly-boom` is excluded from the table above and scored
-separately: it wins 0 of 400 games, and 0 of 40 against the engine's own fixed
-agents, so it is not functional rather than merely weak. Leaving it in would
-inflate everyone who shared a table with it.
+EnzeCbe's `monopoly-boom` was excluded from that table and scored separately: 0
+of 400 games, and 0 of 40 against the engine's own fixed agents, so it is not
+functional rather than merely weak, and leaving it in inflates everyone who
+shared a table with it. The 2026-08-14 table above includes it because the
+field is listed in full there; its 0.0% is the same finding.
 
 ## Head-to-head says something different, and is the less useful measurement
 
-One of ours against three copies of one rival, 720 games:
+One of ours against three copies of one rival, 720 games each. The current
+agent (2026-08-14) beside the heuristic it replaced (2026-08-13):
 
-| opponent (3x) | our win rate | 95% CI |
-| --- | ---: | --- |
-| boom | 100.0% | [96.9, 100.0] |
-| aline | 40.8% | [32.5, 49.8] |
-| expo | 35.8% | [27.8, 44.7] |
-| slayer | 26.7% | [19.6, 35.2] |
-| inncenta | 17.5% | [11.7, 25.3] |
-| 6c0de | 15.0% | [9.7, 22.5] |
+| opponent (3x) | current | 95% CI | previous |
+| --- | ---: | --- | ---: |
+| boom | 100.0% | [96.9, 100.0] | 100.0% |
+| expo | 37.5% | [29.4, 46.4] | 35.8% |
+| 6c0de | 34.2% | [26.3, 43.0] | 15.0% |
+| inncenta | 29.2% | [21.8, 37.8] | 17.5% |
+| slayer | 27.5% | [20.3, 36.1] | 26.7% |
+| **aline** | **20.0%** | [13.8, 28.0] | **40.8%** |
 
-By this table we beat three teams and tie a fourth. By the round-robin we are
-fifth. Both are correct, and the round-robin is the one that matches the
+Three of these rivals changed code between the two runs, so only `aline`,
+`slayer` and `inncenta` are like-for-like. On those three the current agent is
+much better against inncenta, level against slayer, and **much worse against
+aline** — 20.0% where the heuristic took 40.8%.
+
+That is worth stating plainly rather than burying: the new agent is not
+strictly dominant, and the old one still beats it in one specific matchup.
+Two things bound how much it matters. The 20.0% interval still contains parity,
+so it is not a *losing* matchup, merely an unremarkable one. And facing three
+clones is not the shape the competition uses — in the round-robin, where each
+table holds four *different* agents, we lead aline 37.9% to 21.2%.
+
+By the head-to-head table we beat every team. By the round-robin we are first
+by a nose. Both are correct, and the round-robin is the one that matches the
 competition format.
 
 Facing three copies of a single agent is a different game from facing three
@@ -63,32 +131,40 @@ against — ranks us first at **85.0%**, ahead of expo (80.0%), aline and slayer
 (65.0% each), and boom (0.0%). Beating a weak common reference does not predict
 standing in a strong mixed field. Three axes, three different orderings.
 
-## The gap is not a model-selection problem
+## The gap was not a model-selection problem — it needed a different model
 
-All three agents this project produced, played through *identical* tables and
-seeds, 200 games each:
+As of 2026-08-13, all three agents this project had produced, played through
+*identical* tables and seeds, 200 games each:
 
 | candidate | win rate | 95% CI |
 | --- | ---: | --- |
-| UNDERDOG — ChampionPlus, submitted | 14.5% | [10.3, 20.0] |
+| UNDERDOG — ChampionPlus, then submitted | 14.5% | [10.3, 20.0] |
 | champion — base heuristic variant | 14.5% | [10.3, 20.0] |
 | LAST_RESORT — learned checkpoint | 13.5% | [9.4, 18.9] |
 
-Indistinguishable. Swapping the submitted agent for either alternative changes
-nothing, so the distance to the top of the field is not something a different
-choice among what we have would close.
+Indistinguishable. Swapping among what existed at that point changed nothing,
+which is what established that the distance to the top of the field could not
+be closed by choosing differently among them — it needed a different model.
+The gradient-boosted agent is that model, and it moved the same measurement
+from 18.8% to 38.8%.
 
 ## What the top of the table is doing
 
-Two of the six call `ASU_FROZEN_TEACHER` inside their submitted entry point:
+As of 2026-08-13, two of the six called `ASU_FROZEN_TEACHER` inside their
+submitted entry point:
 
-- **6c0de** — `agent.py` is 103 lines wrapping `ASUValueV1`, plus a
-  minimum-raise rule for auctions. It finishes first.
+- **6c0de** — `agent.py` was 103 lines wrapping `ASUValueV1`, plus a
+  minimum-raise rule for auctions. It finished first.
 - **inncenta** — its own candidate generator, scored by ASU's value function
   via `evaluate_value(env, pid)`.
 
-The other four reference ASU only in training or evaluation tooling, never on
+The other four referenced ASU only in training or evaluation tooling, never on
 the decision path.
+
+**6c0de removed theirs on 2026-08-14**, replacing the ASU wrapper with a
+self-contained policy whose module docstring names the change explicitly. So
+the current field has one submitted entry point on the ASU decision path
+(inncenta), not two.
 
 We were instructed that ASU could be used as a training opponent and benchmark
 but never implemented directly, so the entire project went into trying to
@@ -151,10 +227,25 @@ kept for the record, but the `rr` numbers are the ones to cite.
 ## Commands
 
 ```bash
-python tools/gauntlet.py --mode rr       --exclude boom --seeds 10 --workers 10
-python tools/gauntlet.py --mode h2h      --seeds 30 --workers 10
-python tools/gauntlet.py --mode baseline --seeds 10 --workers 10
-python tools/gauntlet.py --mode melee    --exclude boom --candidate LAST_RESORT --seeds 5
+# the competition shape: our agent + all six rivals, every 4-agent table
+python tools/gauntlet.py --mode rr  --candidate LGBM --seeds 3  --workers 10
+
+# two of ours in the same tables, so the comparison is paired
+python tools/gauntlet.py --mode rr  --candidate LGBM --with UNDERDOG --seeds 4
+
+python tools/gauntlet.py --mode h2h      --candidate LGBM --seeds 30 --workers 10
+python tools/gauntlet.py --mode baseline --candidate LGBM --seeds 10 --workers 10
+```
+
+`LGBM` enters through `agent.py` itself — the same file the match harness
+loads — rather than through `underdog_gbm.policy`, so what is measured includes
+seat resolution, illegal-action substitution and the fallback path.
+
+Pull the rivals' latest code first; three of them changed on the last day
+measured:
+
+```bash
+for d in external/competitors/*/; do (cd "$d" && git pull --ff-only); done
 ```
 
 The six repositories are cloned under `external/competitors/` (gitignored, not

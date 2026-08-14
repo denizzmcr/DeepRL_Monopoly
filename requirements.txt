@@ -1,0 +1,18 @@
+# Runtime dependencies of agent.py. Two entries against a limit of 32.
+#
+# Both publish wheels for every platform the match runs on (manylinux x86_64 for
+# the Docker server agents, and the Colab venv). Neither needs a compiler at
+# install time, and nothing here is fetched during a match -- the validator
+# resolves these once and ships the lock file with the artifact.
+#
+# Deliberately absent: torch. The submitted policy is gradient-boosted and never
+# calls it. The engine imports torch on its own (monopoly_game_engine/__init__.py),
+# but that is the harness's dependency and the harness supplies it -- listing it
+# here would install the Linux CUDA wheel and blow the 2 GiB sandbox by itself.
+# tests/test_agent_entrypoint.py pins this reasoning to a test.
+#
+# lightgbm links OpenMP. Its manylinux wheel vendors libgomp, so a Linux install
+# is self-contained; on macOS the wheel does not vendor libomp and the library
+# has to come from the system. See docs/SUBMISSION_CHECKS.md.
+numpy>=1.26,<3
+lightgbm>=4.0,<5

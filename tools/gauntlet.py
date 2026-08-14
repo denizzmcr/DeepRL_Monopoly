@@ -211,6 +211,31 @@ def _b_v2(name: str):
     return build
 
 
+def _b_lgbm(seat: int):
+    """Our submission, entered through the same file the match harness loads.
+
+    Deliberately routed through ``agent.py`` rather than
+    ``underdog_gbm.policy`` directly: the entry point is where the seat is
+    resolved, illegal returns are substituted and the fallback lives, so
+    measuring the policy alone would measure something nobody runs. Its
+    ``engine_shim`` binds whatever ``monopoly_game_engine`` is already
+    imported, which ``_pin_engine`` has guaranteed is ours.
+    """
+    mod = _load_file(REPO / "agent.py", "our_entrypoint", [REPO])
+
+    class _W:
+        def __init__(self, pid):
+            self.player_id = pid
+            self._a = mod.Agent(pid)
+
+        def choose_action(self, env):
+            pid = self.player_id
+            legal = list(env.get_allowed_actions(pid))
+            return int(self._a.choose_action(env._get_state(pid), legal,
+                                             env=env, player_id=pid))
+    return _W(seat)
+
+
 def _b_6c0de(seat: int):
     root = COMP / "6c0de_exposure-monopoly-agent"
     mod = _load_file(root / "agent.py", "team_6c0de_agent", [root])
@@ -280,6 +305,7 @@ AGENTS: dict[str, tuple] = {
     "v2_score":  (_b_v2("v2_score"), "env", "ours (deeds priced as the engine scores them)"),
     "v2_score_auc": (_b_v2("v2_score_auc"), "env", "ours (score pricing + auction ceiling)"),
     "v2_score_deep": (_b_v2("v2_score_deep"), "env", "ours (score pricing + thinner floor)"),
+    "LGBM":      (_b_lgbm,     "env", "ours (gradient-boosted, new bundle)"),
     "6c0de":     (_b_6c0de,    "env", "6c0de/exposure-monopoly-agent"),
     "expo":      (_b_expo,     "env", "emingurbuz9483/exposure-monopoly-algorithm"),
     "boom":      (_b_boom,     "sae", "EnzeCbe/monopoly-boom"),
@@ -289,7 +315,7 @@ AGENTS: dict[str, tuple] = {
 }
 
 # Ours are candidates for the submitted slot, never opposition.
-OURS = ["UNDERDOG", "LAST_RESORT", "champion", "core", "stall", "thaw",
+OURS = ["UNDERDOG", "LAST_RESORT", "LGBM", "champion", "core", "stall", "thaw",
         "v2_plain", "v2_plain2", "v2_buy", "v2_plainbuy", "v2_horizon",
         "v2_score", "v2_score_auc", "v2_score_deep"]
 RIVALS = [k for k in AGENTS if k not in OURS]
@@ -478,7 +504,8 @@ def wilson(w: int, n: int, z: float = 1.96) -> tuple[float, float]:
 
 def _build_jobs(mode: str, seeds: int, only: list[str] | None,
                 exclude: list[str] | None = None,
-                candidate: str = "UNDERDOG"):
+                candidate: str = "UNDERDOG",
+                extra: list[str] | None = None):
     """Seat-balanced job list.
 
     Every seed is replayed with the lineup rotated through all four seats, so
@@ -495,17 +522,17 @@ def _build_jobs(mode: str, seeds: int, only: list[str] | None,
     rivals.sort(key=lambda r: -cost.get(r, 1.0))
     jobs = []
     if mode == "baseline":
-        for name in ["UNDERDOG", *rivals]:
+        for name in [candidate, *rivals]:
             for s in range(seeds):
                 for seat in range(NUM_PLAYERS):
                     jobs.append(("__baseline__", name, seat, 9000 + s))
     elif mode == "h2h":
-        # UNDERDOG against three copies of one rival: the direct question.
+        # The candidate against three copies of one rival: the direct question.
         for rival in rivals:
             for s in range(seeds):
                 for seat in range(NUM_PLAYERS):
                     lineup = [rival] * NUM_PLAYERS
-                    lineup[seat] = "UNDERDOG"
+                    lineup[seat] = candidate
                     jobs.append((lineup, 5000 + s))
     elif mode == "melee":
         # Four distinct teams per table, the shape the real match uses.
@@ -528,7 +555,10 @@ def _build_jobs(mode: str, seeds: int, only: list[str] | None,
         # standings cannot be compared. Drawing tables from the full field
         # removes that asymmetry -- each of the n agents appears in
         # C(n-1, 3) tables and no agent is a fixed feature of the opposition.
-        field = ["UNDERDOG", *rivals]
+        # ``extra`` puts a second agent of ours in the same tables, so the two
+        # are compared on identical opposition and identical seeds rather than
+        # across two separate runs.
+        field = [candidate, *(extra or []), *rivals]
         for combo in itertools.combinations(field, NUM_PLAYERS):
             for s in range(seeds):
                 for rot in range(NUM_PLAYERS):
@@ -545,13 +575,15 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=10)
     ap.add_argument("--only", nargs="*", default=None)
     ap.add_argument("--candidate", default="UNDERDOG",
-                    help="which of ours fills the submitted slot in melee")
+                    help="which of ours fills the submitted slot")
+    ap.add_argument("--with", dest="extra", nargs="*", default=None,
+                    help="extra agents of ours to place in the rr field")
     ap.add_argument("--exclude", nargs="*", default=None,
                     help="drop agents from the field, e.g. a non-functional one")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
 
-    jobs = _build_jobs(a.mode, a.seeds, a.only, a.exclude, a.candidate)
+    jobs = _build_jobs(a.mode, a.seeds, a.only, a.exclude, a.candidate, a.extra)
     print(f"mode={a.mode}  {len(jobs)} games  workers={a.workers}  "
           f"parity={100/NUM_PLAYERS:.0f}%", flush=True)
 
@@ -565,7 +597,7 @@ def main() -> None:
                 mins = (time.perf_counter() - started) / 60
                 print(f"  {i}/{len(jobs)}  {mins:.1f} min elapsed", flush=True)
 
-    _report(a.mode, results)
+    _report(a.mode, results, a.candidate)
     tag = a.mode if a.candidate == "UNDERDOG" else f"{a.mode}_{a.candidate}"
     out = Path(a.out) if a.out else (REPO / "artifacts" / f"gauntlet_{tag}.json")
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -573,7 +605,7 @@ def main() -> None:
     print(f"\nwrote {out}")
 
 
-def _report(mode: str, results: list[dict]) -> None:
+def _report(mode: str, results: list[dict], candidate: str = "UNDERDOG") -> None:
     fatal = [r for r in results if r.get("fatal")]
     if fatal:
         print(f"\n{len(fatal)} games failed outright:")
@@ -591,11 +623,11 @@ def _report(mode: str, results: list[dict]) -> None:
     if mode == "h2h":
         for rival in RIVALS:
             rows = [r for r in results
-                    if "UNDERDOG" in r["lineup"] and rival in r["lineup"]]
+                    if candidate in r["lineup"] and rival in r["lineup"]]
             if not rows:
                 continue
             n = len(rows)
-            w = sum(r["winner"] == "UNDERDOG" for r in rows)
+            w = sum(r["winner"] == candidate for r in rows)
             lo, hi = wilson(w, n)
             tr = 100 * sum(r["truncated"] for r in rows) / n
             sec = sum(r["secs"] for r in rows) / n
