@@ -233,6 +233,39 @@ class TestIsolation(unittest.TestCase):
                          "the agent pulled in a third-party package that "
                          "requirements.txt does not account for")
 
+    def test_importing_us_does_not_put_a_second_engine_on_the_path(self) -> None:
+        """``underdog/engine/`` is a full vendored copy of the simulator.
+
+        If ``agent.py`` put ``underdog/`` on sys.path at import time, a later
+        ``import engine`` anywhere in the harness process would find our copy
+        and silently decide the rules for the whole table -- the failure this
+        project pinned its own engine to avoid. Nothing we do to sys.path may
+        shadow a name the harness owns.
+        """
+        script = (f"import sys\nsys.path.insert(0, {str(ROOT)!r})\n"
+                  "import agent, importlib.util\n"
+                  "spec = importlib.util.find_spec('engine')\n"
+                  "print('ENGINE=' + (spec.origin or '') if spec else 'ENGINE=')")
+        completed = subprocess.run([sys.executable, "-c", script],
+                                   capture_output=True, text=True, cwd=str(ROOT))
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        origin = completed.stdout.split("ENGINE=", 1)[1].strip()
+        self.assertNotIn("underdog/engine", origin,
+                         "importing agent.py exposed the vendored engine copy")
+
+    def test_the_fallback_binds_the_harness_engine_not_the_vendored_one(self) -> None:
+        """The fallback is the path most likely to get this wrong, so pin it."""
+        script = (f"import sys\nsys.path.insert(0, {str(ROOT)!r})\n"
+                  "import agent\n"
+                  "p = agent._fallback()\n"
+                  "print('ENGINE=' + sys.modules['engine'].__file__)")
+        completed = subprocess.run([sys.executable, "-c", script],
+                                   capture_output=True, text=True, cwd=str(ROOT))
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        origin = completed.stdout.split("ENGINE=", 1)[1].strip()
+        self.assertIn("monopoly_game_engine", origin)
+        self.assertNotIn("underdog/engine", origin)
+
     def _roots(self, body: str) -> set[str]:
         script = (f"import sys\nsys.path.insert(0, {str(ROOT)!r})\n{body}\n"
                   "print('ROOTS=' + ','.join(sorted({n.split('.')[0] "

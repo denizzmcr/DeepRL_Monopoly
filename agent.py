@@ -15,9 +15,9 @@ The policy
 ----------
 Two gradient-boosted models over engineered features, in ``underdog_gbm/``.
 Model A owns the auction family, Model B every other family; each scores the
-legal candidates and the agent takes the argmax. See ``underdog_gbm/policy.py``
-for the split and ``docs/GAUNTLET.md`` for what it measured against the other
-teams' agents.
+legal candidates and the agent takes the argmax. See
+``underdog_gbm/gbm_policy.py`` for the split and ``docs/GAUNTLET.md`` for what
+it measured against the other teams' agents.
 
 Contract compliance
 -------------------
@@ -52,10 +52,20 @@ from pathlib import Path
 from typing import Any, Sequence
 
 _ROOT = Path(__file__).resolve().parent
-for _sub in ("underdog_gbm", "underdog"):
-    _p = str(_ROOT / _sub)
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+
+# Only the policy package goes on the path, and only this one.
+#
+# ``underdog/`` is deliberately NOT added here even though the fallback lives
+# in it: it contains ``underdog/engine/``, a complete vendored copy of the
+# simulator under the top-level name ``engine``. Putting that on sys.path[0]
+# inside the harness's process would let it answer a later ``import engine``
+# and silently decide the rules for the whole table -- the exact failure this
+# project pinned its own engine to avoid (docs/GAUNTLET.md). ``_fallback()``
+# adds it only if it is ever needed, and only after ``engine`` is already
+# bound to the harness's simulator.
+_PKG = str(_ROOT / "underdog_gbm")
+if _PKG not in sys.path:
+    sys.path.insert(0, _PKG)
 
 __all__ = ["Agent", "choose_action", "make_agent", "VARIANT"]
 
@@ -77,8 +87,14 @@ def _policy() -> Any:
     if _POLICY is not None:
         return _POLICY
     try:
+        # Imported before LightGBM on purpose. This module runs ``engine_shim``,
+        # which binds the top-level name ``engine`` to whichever
+        # ``monopoly_game_engine`` the harness already has. Doing it first means
+        # that even when LightGBM is what fails, ``engine`` is correctly bound
+        # before the fallback -- whose own imports would otherwise resolve
+        # against ``underdog/engine/`` and run on the wrong copy of the rules.
+        from underdog_gbm.gbm_policy import MonopolyAgent
         import lightgbm as lgb
-        from underdog_gbm.policy import MonopolyAgent
         agent = MonopolyAgent()
         # Load both boosters now. They are lazy by default, and a truncated or
         # unreadable model file should surface here rather than mid-game on the
@@ -90,10 +106,33 @@ def _policy() -> Any:
     except Exception as exc:
         print(f"[UNDERDOG] gradient-boosted policy unavailable ({type(exc).__name__}:"
               f" {exc}); falling back to the rule agent", file=sys.stderr, flush=True)
-        from heuristic import ChampionScore
-        _POLICY = ChampionScore()
+        _POLICY = _fallback()
         _FALLBACK = True
     return _POLICY
+
+
+def _fallback() -> Any:
+    """The rule agent, imported without letting its engine copy win.
+
+    ``underdog/heuristic`` reads ``from engine.actions import ...``. The name
+    ``engine`` must already point at the harness's simulator before that import
+    runs, or Python will bind it to ``underdog/engine/`` -- a vendored copy --
+    and the fallback would then play by rules the rest of the table is not
+    using. So bind it explicitly first, and refuse to import at all if there is
+    no simulator to bind it to.
+    """
+    import importlib
+    if "engine" not in sys.modules:
+        engine = importlib.import_module("monopoly_game_engine")
+        sys.modules["engine"] = engine
+        for sub in ("actions", "constants", "env", "state"):
+            sys.modules.setdefault(
+                f"engine.{sub}", importlib.import_module(f"monopoly_game_engine.{sub}"))
+    path = str(_ROOT / "underdog")
+    if path not in sys.path:
+        sys.path.append(path)      # appended, never ahead of the harness
+    from heuristic import ChampionScore
+    return ChampionScore()
 
 
 def _legal(action: Any, allowed: Sequence[int]) -> int:
