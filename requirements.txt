@@ -1,18 +1,21 @@
-# Runtime dependencies of agent.py. Two entries against a limit of 32.
+# Runtime dependency of agent.py. One entry against a limit of 32.
 #
-# Both publish wheels for every platform the match runs on (manylinux x86_64 for
-# the Docker server agents, and the Colab venv). Neither needs a compiler at
-# install time, and nothing here is fetched during a match -- the validator
-# resolves these once and ships the lock file with the artifact.
+# numpy publishes wheels for every platform the match runs on, needs no
+# compiler at install time, and nothing here is fetched during a match: the
+# validator resolves this once and ships the lock file with the artifact.
 #
-# Deliberately absent: torch. The submitted policy is gradient-boosted and never
-# calls it. The engine imports torch on its own (monopoly_game_engine/__init__.py),
-# but that is the harness's dependency and the harness supplies it -- listing it
-# here would install the Linux CUDA wheel and blow the 2 GiB sandbox by itself.
-# tests/test_agent_entrypoint.py pins this reasoning to a test.
+# Deliberately absent: lightgbm. The boosters are still gradient-boosted trees,
+# but they are evaluated by underdog_gbm/nplgbm.py in numpy rather than by
+# lib_lightgbm.so, which links libgomp.so.1 dynamically. The match image is
+# python:3.12-slim-bookworm, which does not carry the OpenMP runtime, and the
+# image is built with --network=none so nothing can be installed at build time.
+# The manylinux wheel does not vendor libgomp -- this file used to claim it
+# did, and that claim cost a tournament: `import lightgbm` raised OSError in
+# the sandbox and the agent played its rule fallback in every game while
+# reporting zero strikes. The numpy evaluator scores bit-identically to
+# LightGBM on the shipped models.
 #
-# lightgbm links OpenMP. Its manylinux wheel vendors libgomp, so a Linux install
-# is self-contained; on macOS the wheel does not vendor libomp and the library
-# has to come from the system. See docs/SUBMISSION_CHECKS.md.
+# Deliberately absent: torch. Only the engine's trainers need it and a
+# submitted agent never touches them; monopoly_game_engine/__init__.py imports
+# them conditionally for that reason.
 numpy>=1.26,<3
-lightgbm>=4.0,<5

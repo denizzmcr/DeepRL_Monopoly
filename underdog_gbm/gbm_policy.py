@@ -40,8 +40,10 @@ class _Booster:
 
     def __call__(self, X):
         if self._b is None:
-            import lightgbm as lgb
-            self._b = lgb.Booster(model_file=self.path)
+            # numpy, not lightgbm: lib_lightgbm.so links libgomp.so.1, which
+            # the match image does not carry and cannot install offline.
+            from nplgbm import NumpyBooster
+            self._b = NumpyBooster(self.path)
         return self._b.predict(X)
 
 

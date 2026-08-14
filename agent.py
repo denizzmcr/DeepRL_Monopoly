@@ -86,10 +86,12 @@ def _policy() -> Any:
         # has. Doing it first means that even when LightGBM is what fails,
         # ``engine`` is already correct for the fallback's own imports.
         from underdog_gbm.gbm_policy import MonopolyAgent
-        import lightgbm as lgb
+        from nplgbm import NumpyBooster
         agent = MonopolyAgent()
+        # Parse both boosters now: a truncated model file should surface here
+        # rather than mid-game on the first decision of its family.
         for booster in (agent.model_a, agent.model_b):
-            booster._b = lgb.Booster(model_file=booster.path)
+            booster._b = NumpyBooster(booster.path)
         _POLICY = agent
     except Exception as exc:
         print(f"[UNDERDOG] gradient-boosted policy unavailable ({type(exc).__name__}:"
