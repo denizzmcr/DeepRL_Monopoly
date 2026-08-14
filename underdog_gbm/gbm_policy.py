@@ -66,7 +66,16 @@ class MonopolyAgent:
         cand = np.asarray(allowed, dtype=np.int64)
         secs = _STATIC[cand][:, 0]
         if int(secs[0]) == _AUCTION_SEC and (secs == _AUCTION_SEC).all():
-            obs = build_obs(env, pid).astype(np.float32)
+            # Prefer the observation the harness supplies over rebuilding one.
+            # The observation is seat-relative and its ordering comes from
+            # ``env.turn_order``, which the engine shuffles per game and never
+            # transmits -- so a board rebuilt from JSON cannot reproduce it and
+            # would hand Model A a mis-permuted vector. ``state["vector"]`` is
+            # the authoritative one. Absent (live engine), build it as before.
+            obs = getattr(env, "supplied_vector", None)
+            if obs is None:
+                obs = build_obs(env, pid)
+            obs = np.asarray(obs, dtype=np.float32)
             X = np.empty((cand.size, obs.size + ACT_DIM_V2), dtype=np.float32)
             X[:, :obs.size] = obs
             X[:, obs.size:] = action_features_v2(env, pid, cand)

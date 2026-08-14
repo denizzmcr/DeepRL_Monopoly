@@ -52,6 +52,61 @@ print('ROOTS=' + ','.join(sorted({{n.split('.')[0] for n in sys.modules}})))
 """
 
 
+def to_harness_state(env, pid: int, legal) -> dict:
+    """Serialise the engine into exactly what the harness sends over the pipe.
+
+    The tournament hands over plain JSON; nothing else is available at match
+    time. Building the payload here rather than passing ``env`` is the whole
+    point of these tests: the previous revision passed a live engine in its own
+    suite, so every test was green while the shipped agent never once saw a
+    board.
+    """
+    import json as _json
+    sys.path.insert(0, str(ROOT / "underdog_gbm"))
+    import engine_shim  # noqa: F401  binds ``engine`` before obs_lib needs it
+    from obs_lib import build_obs
+    payload = {
+        "schema_version": "exposure-agent-v1",
+        "ruleset_version": "ppo-plus-v2",
+        "vector": [float(x) for x in build_obs(env, pid)],
+        "decision_seed": 12345678901234,
+        "actions": {str(int(a)): f"a{int(a)}" for a in legal},
+        "board": {
+            "round": int(env.round), "phase": str(env.phase),
+            "current_turn": int(pid), "active_player": int(env.active_player_id()),
+            "has_rolled": bool(env.has_rolled),
+            "last_dice": list(env.last_dice), "done": bool(env.done),
+            "houses_available": int(env.houses_available),
+            "hotels_available": int(env.hotels_available),
+            "auction": (None if env.auction_property_id is None else {
+                "property_id": int(env.auction_property_id),
+                "bidders": [int(b) for b in env.auction_bidders],
+                "current_bidder": (None if env.auction_current_pid is None
+                                   else int(env.auction_current_pid)),
+                "high_bid": int(env.auction_high_bid),
+                "high_bidder": (None if env.auction_high_bidder is None
+                                else int(env.auction_high_bidder))}),
+            "players": [
+                {"player_id": i, "cash": float(env.players[i].cash),
+                 "position": int(env.players[i].position),
+                 "in_jail": bool(env.players[i].in_jail),
+                 "jail_turns": int(env.players[i].jail_turns),
+                 "gooj_card": bool(env.players[i].gooj_card),
+                 "bankrupt": bool(env.players[i].bankrupt),
+                 "net_worth": float(env.players[i].net_worth()),
+                 "properties": [int(pr.square_id) for pr in env.players[i].properties]}
+                for i in range(4)],
+            "properties": [
+                {"square_id": int(sq),
+                 "owner": None if pr.owner is None else int(pr.owner),
+                 "mortgaged": bool(pr.mortgaged), "houses": int(pr.houses),
+                 "is_monopoly": bool(pr.is_monopoly)}
+                for sq, pr in env.properties.items()],
+        },
+    }
+    return _json.loads(_json.dumps(payload))   # must survive the wire
+
+
 def play(seat: int, seed: int, max_rounds: int = 200):
     """One seeded game with the entry point in ``seat``.
 
@@ -77,8 +132,8 @@ def play(seat: int, seed: int, max_rounds: int = 200):
             continue
         if pid == seat:
             started = time.perf_counter()
-            action = entrypoint.choose_action(env._get_state(pid), list(legal),
-                                              env=env, player_id=pid)
+            state = to_harness_state(env, pid, list(legal))
+            action = entrypoint.choose_action(state, pid, list(legal))
             latencies.append(time.perf_counter() - started)
             if action not in legal:
                 illegal += 1
@@ -92,94 +147,133 @@ def play(seat: int, seed: int, max_rounds: int = 200):
 
 
 class TestContract(unittest.TestCase):
-    def test_declares_a_signature_that_gets_us_the_board(self) -> None:
-        """The declaration is read by the harness to decide what to pass.
+    def test_declares_the_harness_signature_exactly(self) -> None:
+        """``(state, player_id, allowed_actions)``, in that order, no extras.
 
-        ``submission.contract.plan_injections`` treats the first two positional
-        parameters as ``(state, allowed_actions)`` and injects only the *later*
-        ones it recognises -- so ``env`` and ``player_id`` have to sit at
-        positions 3 and 4 or no board is ever handed over. Getting this wrong
-        does not fail validation; it silently produces an agent that plays
-        blind, which is how it was caught (8 wins to 0).
-
-        Argument *order* at call time is handled separately, by shape, in
-        ``_unpack`` -- see the round-trip test below.
+        The previous revision declared ``(state, allowed_actions, env,
+        player_id)`` and sorted the arguments by shape at runtime. That
+        tolerance layer existed to survive a contract that was never
+        ambiguous, and it hid the real defect for a whole tournament.
         """
         import inspect
         for target in (entrypoint.choose_action,
                        entrypoint.Agent(0).choose_action):
             params = list(inspect.signature(target).parameters)
             with self.subTest(target=target):
-                self.assertEqual(params[:2], ["state", "allowed_actions"])
-                self.assertIn("env", params[2:4])
-                self.assertIn("player_id", params[2:4])
+                self.assertEqual(params[:3],
+                                 ["state", "player_id", "allowed_actions"])
+                self.assertNotIn("env", params)
 
-    def test_every_published_parameter_order_yields_the_same_legal_action(self) -> None:
-        """Two spec versions order these differently; both must work.
+    def test_the_policy_runs_on_a_plain_dict(self) -> None:
+        """The regression test for the defect that scored 0 wins in 1000 games.
 
-        Under the match rules a crash is a strike and three strikes replace the
-        agent with a fixed bot, so a reordered call has to be handled rather
-        than raised on.
+        ``state`` is a dict. Detecting the board with ``hasattr`` returns False
+        on every decision, and the agent then plays ``allowed_actions[0]``
+        forever without anything noticing. ``STRICT`` turns that silent
+        fallback into a failure.
         """
         random.seed(7)
         env = MonopolyEnv(agent_ids=[0], max_rounds=200)
         env.reset()
         pid = env.whose_turn()
         legal = list(env.get_allowed_actions(pid))
-        vec = env._get_state(pid)
+        state = to_harness_state(env, pid, legal)
 
-        calls = {
-            "new positional": lambda: entrypoint.choose_action(vec, pid, legal, env),
-            "new keyword": lambda: entrypoint.choose_action(
-                state=vec, player_id=pid, allowed_actions=legal, env=env),
-            "old positional": lambda: entrypoint.choose_action(vec, legal, env, pid),
-            "old keyword": lambda: entrypoint.choose_action(
-                vec, legal, env=env, player_id=pid),
+        entrypoint.STRICT = True
+        try:
+            action = entrypoint.choose_action(state, pid, legal)
+        finally:
+            entrypoint.STRICT = False
+        self.assertIn(action, legal)
+
+    def test_the_ported_board_agrees_with_the_live_engine(self) -> None:
+        """The dict rebuild must not change what the policy plays.
+
+        Replays a game and asks the policy the same question twice: once from
+        the live engine, once from the board rebuilt out of JSON. Any
+        divergence means a feature is reading something the payload did not
+        carry.
+        """
+        sys.path.insert(0, str(ROOT / "underdog_gbm"))
+        import dict_board as dbmod
+
+        policy = entrypoint._policy()
+        random.seed(5)
+        env = MonopolyEnv(agent_ids=[0], max_rounds=200)
+        env.reset()
+        compared = agreed = 0
+        for _ in range(600):
+            if env.done:
+                break
+            pid = env.whose_turn()
+            if env.players[pid].bankrupt:
+                env._advance_turn()
+                continue
+            legal = sorted(int(a) for a in env.get_allowed_actions(pid))
+            if not legal:
+                env._advance_turn()
+                continue
+            if len(legal) == 1:
+                env.step(legal[0])
+                continue
+            live = policy.choose_action(env, pid, 0)
+            state = to_harness_state(env, pid, legal)
+            board = dbmod.board_from_state(state, legal, pid)
+            self.assertIsNotNone(board, "board_from_state found no board")
+            compared += 1
+            agreed += int(policy.choose_action(board, pid, 0) == live)
+            env.step(live)
+        self.assertGreater(compared, 200, "too few decisions to be evidence")
+        self.assertEqual(agreed, compared,
+                         f"ported board diverged on {compared - agreed} of "
+                         f"{compared} decisions")
+
+    def test_never_redeems_a_mortgage_while_in_debt(self) -> None:
+        """The exact livelock that bankrupted the previous revision in round 0.
+
+        In debt the engine offers only liquidation actions and reorders them
+        after each one, so ``allowed_actions[0]`` alternates mortgage /
+        unmortgage and bleeds 10% per cycle. The guard refuses the redeem leg
+        outright, so the cycle cannot form.
+        """
+        import json as _json
+        base = {
+            "schema_version": "exposure-agent-v1",
+            "ruleset_version": "ppo-plus-v2",
+            "vector": [0.0] * 300, "decision_seed": 7,
+            "actions": {"11": "mortgage(sq=11)", "39": "unmortgage(sq=11)"},
+            "board": {
+                "round": 0, "phase": "post_roll", "current_turn": 0,
+                "active_player": 0, "has_rolled": True, "last_dice": [3, 4],
+                "done": False, "houses_available": 32, "hotels_available": 12,
+                "auction": None,
+                "players": [{"player_id": i, "cash": 0, "position": 11,
+                             "in_jail": False, "jail_turns": 0,
+                             "gooj_card": False, "bankrupt": False,
+                             "net_worth": 60, "properties": []}
+                            for i in range(4)],
+                "properties": [{"square_id": 11, "owner": 0, "mortgaged": False,
+                                "houses": 0, "is_monopoly": False}],
+            },
         }
-        results = {}
-        for name, call in calls.items():
-            with self.subTest(convention=name):
-                action = call()
-                self.assertIn(action, legal)
-                results[name] = action
-        self.assertEqual(len(set(results.values())), 1,
-                         f"orders disagreed on the same position: {results}")
+        seat = entrypoint.Agent(0)
+        emitted, order = [], [11, 39]
+        for i in range(60):
+            state = _json.loads(_json.dumps(base))
+            state["board"]["properties"][0]["mortgaged"] = bool(i % 2)
+            emitted.append(seat.choose_action(state, 0, list(order)))
+            order = order[::-1]          # the engine reorders after each one
+        self.assertNotIn(39, emitted, "redeemed a mortgage while in debt")
+        flips = sum(1 for i in range(1, len(emitted))
+                    if emitted[i] != emitted[i - 1])
+        self.assertLess(flips, 3, f"oscillated {flips} times: {emitted[:12]}")
 
-    def test_a_read_only_decision_state_is_understood(self) -> None:
-        """The newer spec hands over a snapshot object, not a live engine."""
-        random.seed(7)
-        env = MonopolyEnv(agent_ids=[0], max_rounds=200)
-        env.reset()
-        pid = env.whose_turn()
-        legal = list(env.get_allowed_actions(pid))
-
-        class DecisionState:
-            ruleset_version = "ppo-plus-v2"
-            schema_version = 1
-            vector = None
-            board = env
-            actions = legal
-            decision_seed = 12345
-            player_id = pid
-
-        self.assertIn(entrypoint.choose_action(DecisionState(), pid, legal), legal)
-
-    def test_a_board_without_get_allowed_actions_still_works(self) -> None:
-        """A read-only board need not carry the engine's query methods."""
-        random.seed(7)
-        env = MonopolyEnv(agent_ids=[0], max_rounds=200)
-        env.reset()
-        pid = env.whose_turn()
-        legal = list(env.get_allowed_actions(pid))
-
-        class Snapshot:
-            """Deeds and players and nothing else — no query methods."""
-
-            def __init__(self) -> None:
-                self.properties = env.properties
-                self.players = env.players
-
-        self.assertIn(entrypoint.choose_action(None, pid, legal, Snapshot()), legal)
+    def test_a_missing_board_is_survived_not_hidden(self) -> None:
+        """Malformed payloads must return a legal action, and say so once."""
+        for bad in ({}, {"board": None}, {"board": {"players": []}}, "not a dict"):
+            with self.subTest(payload=str(bad)[:24]):
+                self.assertIn(entrypoint.choose_action(bad, 0, [7, 11, 13]),
+                              (7, 11, 13))
 
     def test_exports_both_calling_conventions(self) -> None:
         self.assertTrue(callable(entrypoint.choose_action))
@@ -211,11 +305,11 @@ class TestLegality(unittest.TestCase):
                 self.assertTrue(env.done)
 
     def test_an_empty_allowed_set_still_returns_an_int(self) -> None:
-        self.assertIsInstance(entrypoint.choose_action(None, []), int)
+        self.assertIsInstance(entrypoint.choose_action({}, 0, []), int)
 
     def test_a_board_less_call_returns_a_legal_action(self) -> None:
-        """The harness may withhold ``env``; that must not raise."""
-        self.assertIn(entrypoint.choose_action(None, [7, 11, 13]), (7, 11, 13))
+        """A payload with no board must not raise."""
+        self.assertIn(entrypoint.choose_action({}, 0, [7, 11, 13]), (7, 11, 13))
 
 
 class TestDeterminismAndRng(unittest.TestCase):
@@ -230,7 +324,7 @@ class TestDeterminismAndRng(unittest.TestCase):
         random.seed(1234)
         np.random.seed(1234)
         before = (random.getstate(), np.random.get_state()[1][0])
-        entrypoint.choose_action(env._get_state(pid), legal, env=env, player_id=pid)
+        entrypoint.choose_action(to_harness_state(env, pid, legal), pid, legal)
         after = (random.getstate(), np.random.get_state()[1][0])
         self.assertEqual(before[0], after[0], "python's global RNG moved")
         self.assertEqual(before[1], after[1], "numpy's global RNG moved")
@@ -241,12 +335,10 @@ class TestDeterminismAndRng(unittest.TestCase):
         env.reset()
         pid = env.whose_turn()
         legal = list(env.get_allowed_actions(pid))
-        first = entrypoint.choose_action(env._get_state(pid), legal, env=env,
-                                         player_id=pid)
+        state = to_harness_state(env, pid, legal)
+        first = entrypoint.choose_action(state, pid, legal)
         for _ in range(5):
-            self.assertEqual(
-                entrypoint.choose_action(env._get_state(pid), legal, env=env,
-                                         player_id=pid), first)
+            self.assertEqual(entrypoint.choose_action(state, pid, legal), first)
 
 
 class TestLatency(unittest.TestCase):
