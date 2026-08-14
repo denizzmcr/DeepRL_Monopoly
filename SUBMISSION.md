@@ -135,7 +135,30 @@ forfeit, not a slow game. On a Mac, `brew install libomp` first. This bit us
 during development and is why §7 exists.
 
 Checkout size: the working tree is ~7.6 MB against a 100 MB cap, of which 4.3 MB
-is the two boosters. `directory_size()` excludes `.git`, so repository history
+is the two boosters.
+
+### Measured in a clean sandbox
+
+Built with `python -m venv` and `pip install -r requirements.txt`, plus torch —
+which the harness must supply, because the engine imports it (below). A fresh
+clone, one full game against three scripted opponents:
+
+| | |
+|---|---|
+| policy loaded | gradient-boosted, **fallback not used** |
+| `engine` resolves to | the checkout's `monopoly_game_engine`, **not** `underdog/engine/` |
+| decisions / illegal | 1,328 / **0** |
+| latency | p50 **1.17 ms**, p95 **7.73 ms**, max 10.1 ms — against a 5 s limit |
+| **peak RSS** | **0.24 GiB against the 2 GiB cap** |
+
+**What a venv built from `requirements.txt` alone cannot do.** Without torch,
+`import monopoly_game_engine` fails at its own line 20, and with it the fallback
+too — the agent then returns the first legal action every time. This is not
+specific to us: *no* agent can run in a process where the engine will not
+import, and an agent that is handed a live `env` is by definition in a process
+that already imported it. The engine's dependencies therefore have to come from
+the harness, not from any submission's `requirements.txt`. Ours adds 157 MB of
+wheels on top. `directory_size()` excludes `.git`, so repository history
 does not count.
 
 ## 6. The ASU prohibition
@@ -174,6 +197,16 @@ losing every game to an import error.
 
 `tests/test_agent_entrypoint.py` asserts the fallback is **not** in use, so this
 path cannot go unnoticed in the environment we control.
+
+**The fallback is also where the import path is most dangerous.** `underdog/`
+contains `underdog/engine/`, a complete vendored copy of the simulator under the
+top-level name `engine`. `agent.py` therefore never puts `underdog/` on
+`sys.path` at import time; `_fallback()` appends it — never prepends — and only
+after binding `engine` explicitly to the harness's simulator, so the vendored
+copy can never win the name. Two tests pin this. Getting it wrong would let our
+copy answer a later `import engine` anywhere in the harness process and set the
+rules for the whole table, which is the failure `tools/gauntlet.py` pins its own
+engine to avoid.
 
 ## 8. Reproducing
 
