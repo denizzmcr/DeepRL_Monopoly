@@ -47,7 +47,6 @@ to the alternative: without it, an import failure forfeits every game.
 """
 from __future__ import annotations
 
-import inspect
 import sys
 from pathlib import Path
 from typing import Any, Sequence
@@ -329,15 +328,23 @@ class Agent:
                 break
         self.player_id = int(player_id)
 
-    def choose_action(self, *args: Any, **kwargs: Any) -> int:
+    def choose_action(self, state=None, allowed_actions=None, env=None,
+                      player_id=None, *args: Any, **kwargs: Any) -> int:
         """Accepts either published parameter order; never raises.
 
-        Declared as ``*args`` because two spec versions disagree on position.
-        ``_unpack`` sorts the values by shape; ``choose_action`` below carries
-        the named parameters so a harness that inspects the signature still
-        sees them.
+        The parameters are *declared* in the older order because that is what a
+        harness reads to decide what to hand over: one published contract
+        injects ``env`` and ``player_id`` by keyword only when they appear
+        after the first two positional parameters. Declaring them elsewhere
+        means never being given a board at all.
+
+        The declaration is not trusted at runtime. Every value goes through
+        ``_unpack``, which sorts by shape, so the newer
+        ``(state, player_id, allowed_actions)`` order arrives correctly even
+        though it binds to the wrong names on the way in.
         """
-        state, allowed, env, seat = _unpack(args, kwargs)
+        state, allowed, env, seat = _unpack(
+            (state, allowed_actions, env, player_id) + args, kwargs)
         if seat is None:
             seat = self.player_id
         if not _looks_like_env(env):
@@ -377,15 +384,16 @@ def make_agent(player_id: int = 0, **kwargs: Any) -> Agent:
 _SEATS: dict[int, Agent] = {}
 
 
-def choose_action(*args: Any, **kwargs: Any) -> int:
+def choose_action(state=None, allowed_actions=None, env=None, player_id=None,
+                  *args: Any, **kwargs: Any) -> int:
     """The required contract.
 
-    Takes ``*args`` so that no parameter order can bind a value to the wrong
-    name before ``_unpack`` has judged it by shape. The declared signature a
-    harness sees is ``__signature__`` below, which names every parameter --
-    including ``env``, which one spec version passes only when it is declared.
+    Declared in the older order for the reason given on ``Agent.choose_action``
+    -- a harness reads these names to decide whether to hand over a board --
+    and order-insensitive at runtime because ``_unpack`` sorts by shape.
     """
-    state, allowed, env, seat = _unpack(args, kwargs)
+    state, allowed, env, seat = _unpack(
+        (state, allowed_actions, env, player_id) + args, kwargs)
     seat = 0 if seat is None else seat
     agent = _SEATS.get(seat)
     if agent is None:
@@ -394,16 +402,3 @@ def choose_action(*args: Any, **kwargs: Any) -> int:
     # Already resolved: pass by keyword so they are not sorted a second time.
     return agent.choose_action(state=state, allowed_actions=allowed,
                                env=env, player_id=seat)
-
-
-# What a harness sees when it inspects the entry point. The runtime accepts
-# any order, but introspection must still show the declared contract -- a
-# harness that reads the signature to decide whether to pass ``env`` will not
-# pass it unless it is named here.
-_P = inspect.Parameter
-choose_action.__signature__ = inspect.Signature([
-    _P("state", _P.POSITIONAL_OR_KEYWORD),
-    _P("player_id", _P.POSITIONAL_OR_KEYWORD),
-    _P("allowed_actions", _P.POSITIONAL_OR_KEYWORD),
-    _P("env", _P.POSITIONAL_OR_KEYWORD, default=None),
-], return_annotation=int)

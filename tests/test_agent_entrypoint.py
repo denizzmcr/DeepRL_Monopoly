@@ -92,13 +92,27 @@ def play(seat: int, seed: int, max_rounds: int = 200):
 
 
 class TestContract(unittest.TestCase):
-    def test_declares_the_required_signature(self) -> None:
+    def test_declares_a_signature_that_gets_us_the_board(self) -> None:
+        """The declaration is read by the harness to decide what to pass.
+
+        ``submission.contract.plan_injections`` treats the first two positional
+        parameters as ``(state, allowed_actions)`` and injects only the *later*
+        ones it recognises -- so ``env`` and ``player_id`` have to sit at
+        positions 3 and 4 or no board is ever handed over. Getting this wrong
+        does not fail validation; it silently produces an agent that plays
+        blind, which is how it was caught (8 wins to 0).
+
+        Argument *order* at call time is handled separately, by shape, in
+        ``_unpack`` -- see the round-trip test below.
+        """
         import inspect
-        params = list(inspect.signature(entrypoint.choose_action).parameters)
-        self.assertEqual(params[:3], ["state", "player_id", "allowed_actions"],
-                         "the three required parameters must come first, in order")
-        self.assertIn("env", params,
-                      "env must be declared or a harness will not pass it")
+        for target in (entrypoint.choose_action,
+                       entrypoint.Agent(0).choose_action):
+            params = list(inspect.signature(target).parameters)
+            with self.subTest(target=target):
+                self.assertEqual(params[:2], ["state", "allowed_actions"])
+                self.assertIn("env", params[2:4])
+                self.assertIn("player_id", params[2:4])
 
     def test_every_published_parameter_order_yields_the_same_legal_action(self) -> None:
         """Two spec versions order these differently; both must work.
